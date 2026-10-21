@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  --color-night-950: #070a1a;
+  --color-night-900: #0b1026;
+  --color-night-850: #0f1530;
+  --color-night-800: #141b3b;
+  --color-night-700: #1c2550;
+  --color-night-600: #283366;
+  --color-night-500: #3a4680;
+
+  --color-ink: #e9e7fb;
+  --color-ink-soft: #b9b7d9;
+  --color-ink-mute: #8a89b0;
+
+  --color-lav-200: #ddd6fe;
+  --color-lav-300: #c4b5fd;
+  --color-lav-400: #a78bfa;
+  --color-lav-500: #8b5cf6;
+
+  --color-verified: #5eead4;
+  --color-verified-deep: #14b8a6;
+  --color-recover: #fbbf24;
+  --color-recover-deep: #d97706;
+  --color-failed: #fb7185;
+  --color-unknown: #94a3c8;
+
+  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-spin-slow: spin 2.4s linear infinite;
+  --animate-rise: rise 0.35s ease-out both;
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50% { transform: scale(1.06); opacity: 1; }
+  }
+  @keyframes rise {
+    from { transform: translateY(6px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(139, 92, 246, 0.16), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(45, 212, 191, 0.07), transparent 60%),
+    var(--color-night-900);
+  background-attachment: fixed;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(167, 139, 250, 0.35);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-lav-300);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.card {
+  background: linear-gradient(180deg, rgba(28, 37, 80, 0.55), rgba(20, 27, 59, 0.55));
+  border: 1px solid rgba(196, 181, 253, 0.10);
+  border-radius: 1.25rem;
+}
+
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(196, 181, 253, 0.18); border-radius: 8px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
