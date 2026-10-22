@@ -47,7 +47,8 @@ PLAN_TOOL = {
                                              "properties": {"title": {"type": "string"}, "due": {"type": "string"},
                                                             "note": {"type": "string"}}},
                                 "preference_key": {"type": "string"},
-                                "preference_value": {},
+                                "preference_value": {"type": "string",
+                                                     "description": "New value as text, e.g. \"70\" or \"21:30\"."},
                             },
                             "required": ["action", "title"],
                         },
@@ -105,6 +106,10 @@ class BedrockPlanner:
         }
         return json.dumps(compact, default=str)
 
+    async def _converse(self, request: dict[str, Any]) -> dict[str, Any]:
+        return await asyncio.wait_for(asyncio.to_thread(self._get_client().converse, **request),
+                                      timeout=self.timeout_s + 5)
+
     async def plan(self, utterance: str, context: dict[str, Any], pending: dict[str, Any] | None) -> PlanDraft:
         started = time.perf_counter()
         request = {
@@ -117,8 +122,16 @@ class BedrockPlanner:
             "toolConfig": {"tools": [PLAN_TOOL], "toolChoice": {"any": {}}},
             "inferenceConfig": {"maxTokens": 1200, "temperature": 0},
         }
-        response = await asyncio.wait_for(asyncio.to_thread(self._get_client().converse, **request),
-                                          timeout=self.timeout_s + 5)
+        note = ""
+        try:
+            response = await self._converse(request)
+        except Exception as exc:  # noqa: BLE001
+            # Some models reject forced tool choice; retry once with the default (auto) and say so.
+            if "toolchoice" not in str(exc).lower():
+                raise
+            request["toolConfig"] = {"tools": [PLAN_TOOL]}
+            response = await self._converse(request)
+            note = " · toolChoice=any unsupported, used auto"
         latency = int((time.perf_counter() - started) * 1000)
         blocks = response.get("output", {}).get("message", {}).get("content", [])
         tool_use = next((b["toolUse"] for b in blocks if "toolUse" in b), None)
@@ -138,5 +151,5 @@ class BedrockPlanner:
             if raw["intent"] == "clarify" else None,
             planner="bedrock",
             planner_detail=f"Amazon Bedrock · {self.model_id} · {latency} ms · "
-                           f"{usage.get('inputTokens', '?')} in / {usage.get('outputTokens', '?')} out tokens",
+                           f"{usage.get('inputTokens', '?')} in / {usage.get('outputTokens', '?')} out tokens{note}",
         )

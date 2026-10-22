@@ -85,3 +85,29 @@ async def test_engine_rejects_hallucinated_device_from_llm(settings, services, g
     out = await eng.handle_utterance(session_id, "open the garage")
     assert out["run"] is None
     assert "Unknown device 'garage_door'" in out["message"]["text"]
+
+
+async def test_bedrock_retries_without_forced_tool_choice(context):
+    class Picky(StubBedrock):
+        def converse(self, **request):
+            if "toolChoice" in request["toolConfig"]:
+                self.requests.append(request)
+                raise RuntimeError("ValidationException: toolChoice is not supported by this model")
+            return super().converse(**request)
+
+    stub = Picky({"intent": "routine", "routine_id": "bedtime", "summary": "Bedtime", "spoken_response": "Plan."})
+    draft = await BedrockPlanner("m", "us-east-1", client=stub).plan("bedtime", context, None)
+    assert draft.routine_id == "bedtime"
+    assert "toolChoice=any unsupported" in draft.planner_detail
+    assert len(stub.requests) == 2
+
+
+async def test_string_preference_value_from_llm_is_coerced(settings, services, gateway, session_id):
+    stub = StubBedrock({"intent": "preference_update", "summary": "Pref", "spoken_response": "Saving.",
+                        "actions": [{"action": "update_preference", "title": "Bedtime 70",
+                                     "preference_key": "bedtime_temperature_f", "preference_value": "70"}]})
+    eng = WorkflowEngine(settings, services.ledger, gateway, planner=BedrockPlanner("m", "r", client=stub))
+    out = await eng.handle_utterance(session_id, "I prefer 70 at bedtime")
+    run = await eng.wait_idle(out["run"]["id"])
+    assert run.status == "COMPLETED"
+    assert services.memory.get_preference("bedtime_temperature_f")["value"] == 70
