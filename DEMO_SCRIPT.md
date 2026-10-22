@@ -1,8 +1,9 @@
 # AURA Verify demo video script (target 2:45, hard limit under 3:00)
 
 **Setup before recording:** `make reset && make serve`, open http://127.0.0.1:8000 at 1440×900, voice
-replies on (header toggle), Demo controls closed. Rehearse once: the timings below are from the default
-settle/verification settings (thermostat failure detection takes about 3 seconds by design).
+replies on (header toggle), Demo controls closed. Rehearse once. Measured at default settings: the
+thermostat failure is detected about 5 seconds after approval (3 s verification window by design), recovery
+verifies in about 1 second. Narrate over those waits rather than cutting them: the wait *is* the verification.
 
 Do not show trademarks you don't have rights to (no Echo device footage, no Alexa logos). Say
 "Alexa+-style" and keep the on-screen "simulation" labels visible.

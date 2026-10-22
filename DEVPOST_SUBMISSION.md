@@ -1,4 +1,4 @@
-# AURA Verify: Devpost submission draft
+# AURA Verify: Devpost submission (final text, pending the live Bedrock result)
 
 **Primary track:** Alexa+ (self-hosted MCP server, spec 2025-11-25+, Streamable HTTP), presented through a
 simulated Alexa+ web companion experience.
@@ -58,8 +58,10 @@ through a loop: **intent → plan → authorize → execute → verify → recov
 - **Storage:** SQLite for preferences, routines, reminders, simulator state and the execution ledger.
 - **Frontend:** React, TypeScript, Vite and Tailwind. Live updates over Server-Sent Events. Voice input
   with the Web Speech API where available and full text fallback; optional spoken replies.
-- **Testing:** 50 pytest tests (engine, simulator, MCP over real HTTP, API, planners) and 6 Playwright
-  end-to-end tests covering all three demo scenarios and the mobile layout. See TEST_REPORT.md.
+- **Testing:** 52 pytest tests (engine, simulator, MCP over real HTTP including the 2025-11-25 handshake,
+  API, planners) and 8 Playwright end-to-end tests covering all three demo scenarios, voice-input wiring and
+  the mobile layout, all passing from a clean clone on Python 3.11. See TEST_REPORT.md for what is mocked
+  and what is untested.
 
 ## Challenges we ran into
 

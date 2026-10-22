@@ -91,6 +91,9 @@ says **"Planner · local rules (no LLM)"**. To use Amazon Bedrock, make AWS cred
 `AURA_BEDROCK_MODEL_ID` and `AWS_REGION` (see `.env.example`). If a Bedrock call fails, AURA falls back to
 the local planner and records why in the plan's details.
 
+Step-by-step profile setup and a live end-to-end Bedrock check (`backend/scripts/bedrock_check.py`) are in
+[docs/SETUP_AWS_AND_GITHUB.md](docs/SETUP_AWS_AND_GITHUB.md).
+
 ## Demo walkthrough (the three scenarios)
 
 1. **Overnight shift routine.** On Home, click *"Alexa, prepare the house before my overnight shift."*
@@ -194,6 +197,7 @@ frontend/e2e/     Playwright scenarios
 
 [ARCHITECTURE.md](ARCHITECTURE.md) · [DEMO_SCRIPT.md](DEMO_SCRIPT.md) ·
 [DEVPOST_SUBMISSION.md](DEVPOST_SUBMISSION.md) · [PRODUCT_FEEDBACK.md](PRODUCT_FEEDBACK.md) ·
-[FRICTION_LOG.md](FRICTION_LOG.md) · [TEST_REPORT.md](TEST_REPORT.md)
+[FRICTION_LOG.md](FRICTION_LOG.md) · [TEST_REPORT.md](TEST_REPORT.md) ·
+[READINESS_REPORT.md](READINESS_REPORT.md)
 
 License: [MIT](LICENSE).

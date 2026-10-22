@@ -67,8 +67,9 @@ listed. Each entry says how we observed it. Nothing here is hypothetical.
 
 - **Tool:** Amazon Bedrock Runtime (Converse API) via boto3
 - **Task:** Run the Bedrock planner end to end.
-- **Steps:** The build environment has no AWS credentials, so `boto3.Session().get_credentials()` returns
-  `None` and AURA selects the local planner.
+- **Steps:** The cloud build environment has placeholder AWS variables but no real credentials;
+  `sts:GetCallerIdentity` returned `InvalidClientTokenId` (2026-10-22). The live check therefore has to run on
+  Jahari's machine with a local AWS CLI profile (`backend/scripts/bedrock_check.py`).
 - **Expected / Actual:** N/A, not a product defect. Recorded so nobody reads the Bedrock code as live-tested.
 - **Severity:** Blocks the AWS Builder mini-challenge claim until resolved.
 - **Workaround:** Bedrock planner unit-tested with a stub client (request shape, tool parsing, fallback).
@@ -85,3 +86,17 @@ listed. Each entry says how we observed it. Nothing here is hypothetical.
 - **Severity:** Low.
 - **Workaround:** Scope locators to a region or use `.first()` on known-visible ordering.
 - **Suggestion:** A documented `visible: true` locator option example in the strictness docs would save time.
+
+### 7. Chromium now exposes unprefixed `SpeechRecognition`, so test fakes must replace both names
+
+- **Tool / version:** Playwright Test 1.64.1 driving the pre-installed Chromium build; Web Speech API
+- **Task:** Test AURA's voice-input wiring by replacing the browser recognizer with a scripted fake.
+- **Steps:** `addInitScript` set `window.webkitSpeechRecognition = FakeRecognition`, then clicked the mic.
+- **Expected:** The fake transcript is sent as a chat message.
+- **Actual:** Nothing was sent. Our code prefers `window.SpeechRecognition` when present, and this Chromium
+  build has it natively, so the real (network-backed) recognizer ran headless and failed silently.
+- **Severity:** Low (test-only), but it made a passing feature look broken.
+- **Workaround:** Override both `SpeechRecognition` and `webkitSpeechRecognition` in the fake
+  (`frontend/e2e/voice.spec.ts`).
+- **Suggestion:** A Playwright recipe for faking speech recognition, and MDN compatibility notes that call out
+  unprefixed support in current Chromium.
