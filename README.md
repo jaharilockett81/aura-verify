@@ -50,10 +50,9 @@ answer. AURA keeps six assurance levels separate and never merges them:
   exactly one command.
 - **Persistent memory** in SQLite: preferences, routines (templates resolved against current
   preferences), reminders, the execution ledger and conversation sessions.
-- **Planner**: Amazon Bedrock (Converse API with a forced `submit_plan` tool for structured output) when
-  AWS credentials are present, otherwise a **local rule-based planner that is labeled as such** everywhere
-  it appears. Planners only propose; risk is assigned by AURA's policy, and LLM output is validated
-  against the live device catalogue.
+- **Planner**: a deterministic **local rule-based planner that is labeled as such** everywhere it appears
+  (no LLM). It only proposes; risk is assigned by AURA's policy, and every plan is validated against the
+  live device catalogue.
 - **Web experience** (React + TypeScript + Vite + Tailwind): Home with conversational assistant (voice
   input via the Web Speech API where supported, text always), Workflow Command Center with live timeline,
   evidence and MCP tool log, Memory & Preferences with edit/reset/export/forget, and Execution History.
@@ -146,17 +145,6 @@ For frontend hot reload, run `make dev-api` and `make dev-web` together, then op
 The SQLite database is created at `data/aura.db` with a demo household (user "Jahari", cat "Luna",
 overnight-shift schedule). `make reset` restores the defaults and clears history.
 
-### Planner modes and AWS
-
-No AWS account is needed. Without credentials AURA uses the local rule-based planner and the header
-says **"Planner · local rules (no LLM)"**. To use Amazon Bedrock, make AWS credentials available to boto3
-(e.g. `AWS_PROFILE`), make sure your account has access to the model, and optionally set
-`AURA_BEDROCK_MODEL_ID` and `AWS_REGION` (see `.env.example`). If a Bedrock call fails, AURA falls back to
-the local planner and records why in the plan's details.
-
-Step-by-step profile setup and a live end-to-end Bedrock check (`backend/scripts/bedrock_check.py`) are in
-[docs/SETUP_AWS_AND_GITHUB.md](docs/SETUP_AWS_AND_GITHUB.md).
-
 ## Demo walkthrough (the three scenarios)
 
 1. **Overnight shift routine.** On Home, click *"Alexa, prepare the house before my overnight shift."*
@@ -222,8 +210,7 @@ arguments, results, duration, transport and negotiated protocol version.
 
 ## Environment variables
 
-See [.env.example](.env.example). The most useful: `AURA_PLANNER` (`auto`/`local`/`bedrock`),
-`AURA_BEDROCK_MODEL_ID`, `AWS_REGION`, `AURA_DB_PATH`, `AURA_API_PORT`, `AURA_MCP_PORT`, and the
+See [.env.example](.env.example). The most useful: `AURA_DB_PATH`, `AURA_API_PORT`, `AURA_MCP_PORT`, and the
 verification timing knobs (`AURA_SIM_SETTLE_MS`, `AURA_VERIFY_TIMEOUT_S`, `AURA_MAX_ATTEMPTS`).
 `AURA_TZ` (IANA name, e.g. `America/New_York`) sets the time zone for reminder due times;
 `AURA_DELIVERY_ACK_S` (default 20) is how long an open tab has to confirm it showed an alert.
@@ -240,7 +227,7 @@ backend/aura/
   engine.py       workflow engine: plan, authorize, execute, verify, recover
   gateway.py      MCP client used by the engine
   policy.py       risk tiers and plan validation
-  planner/        local rule-based planner, Bedrock planner
+  planner/        local rule-based planner, spoken-time parser
   api.py          FastAPI REST + Server-Sent Events + static UI
   main.py         runs MCP + API servers
 backend/tests/    pytest suite
@@ -251,8 +238,6 @@ frontend/e2e/     Playwright scenarios
 ## Limitations (honest list)
 
 - Devices are simulated. There is no integration with real smart-home hardware or Alexa APIs.
-- The Bedrock planner is implemented and unit-tested against a stub client, but has **not yet been run
-  against live Bedrock** in our build environment (no AWS credentials there). See TEST_REPORT.md.
 - The local planner is a deterministic pattern matcher, not a language model; it understands the demo
   phrasings and common variants, not open-ended conversation.
 - Reminder and timer alerts appear only in an open AURA browser tab; nothing is delivered to a phone, and a

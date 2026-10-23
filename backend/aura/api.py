@@ -19,11 +19,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .alerts import AlertError, AlertWorkflow
-from .config import Settings, bedrock_credentials_present, load_settings
+from .config import Settings, load_settings
 from .engine import EngineError, WorkflowEngine
 from .gateway import MCPToolGateway
 from .memory import MemoryError
-from .planner.bedrock import BedrockPlanner
 from .planner.local import PLANNER_LABEL, LocalPlanner
 from .services import SIMULATION_NOTICE, HouseholdServices
 from .simulator import FAULT_KINDS, DeviceError
@@ -69,18 +68,6 @@ class FaultIn(BaseModel):
     kind: str
 
 
-def choose_planner(settings: Settings) -> tuple[Any, str]:
-    if settings.planner == "local":
-        return LocalPlanner(), "local (forced by AURA_PLANNER=local)"
-    if settings.planner in ("bedrock", "auto") and bedrock_credentials_present():
-        return BedrockPlanner(settings.bedrock_model_id, settings.aws_region), \
-            f"bedrock ({settings.bedrock_model_id}, {settings.aws_region}); local fallback on error"
-    if settings.planner == "bedrock":
-        log.warning("AURA_PLANNER=bedrock but no AWS credentials were found; using local planner.")
-        return LocalPlanner(), "local (Bedrock requested but no AWS credentials found)"
-    return LocalPlanner(), "local (no AWS credentials found)"
-
-
 def create_app(settings: Settings | None = None, services: HouseholdServices | None = None,
                gateway: MCPToolGateway | None = None, planner: Any = None) -> FastAPI:
     settings = settings or load_settings()
@@ -88,7 +75,7 @@ def create_app(settings: Settings | None = None, services: HouseholdServices | N
     services.seed()
     gateway = gateway or MCPToolGateway(settings.mcp_url, timeout_s=settings.tool_timeout_s)
     if planner is None:
-        planner, planner_mode = choose_planner(settings)
+        planner, planner_mode = LocalPlanner(), "local"
     else:
         planner_mode = getattr(planner, "name", "custom")
     engine = WorkflowEngine(settings, services.ledger, gateway, planner=planner)

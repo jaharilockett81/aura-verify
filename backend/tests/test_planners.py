@@ -1,23 +1,24 @@
-"""Planner tests. The Bedrock planner is exercised with a stub client: these tests do NOT call AWS."""
+"""Planner tests: the local rule-based planner, and how the engine treats whatever a planner returns."""
 
 import pytest
 
 from aura.engine import WorkflowEngine
-from aura.planner.bedrock import BedrockPlanner
+from aura.models import PlanDraft, PlannedAction
 from aura.planner.local import LocalPlanner
 
 
-class StubBedrock:
-    def __init__(self, tool_input=None, error=None):
-        self.tool_input, self.error, self.requests = tool_input, error, []
+class ScriptedPlanner:
+    """Stands in for any pluggable planner: returns a fixed draft, or raises."""
 
-    def converse(self, **request):
-        self.requests.append(request)
+    name = "scripted"
+
+    def __init__(self, draft=None, error=None):
+        self.draft, self.error = draft, error
+
+    async def plan(self, utterance, context, pending):
         if self.error:
             raise self.error
-        return {"output": {"message": {"content": [{"toolUse": {"name": "submit_plan", "input": self.tool_input,
-                                                                "toolUseId": "t1"}}]}},
-                "usage": {"inputTokens": 900, "outputTokens": 120}}
+        return self.draft
 
 
 @pytest.fixture
@@ -45,68 +46,31 @@ async def test_local_planner_preference_vs_command(context):
     assert cmd.intent == "device_control" and cmd.actions[0].attributes == {"setpoint_f": 70}
 
 
-async def test_bedrock_planner_parses_forced_tool_call(context):
-    stub = StubBedrock({"intent": "device_control", "summary": "Porch light on",
-                        "spoken_response": "I'll turn on the porch light once you approve.",
-                        "actions": [{"action": "set_device", "title": "Turn on the porch light",
-                                     "device_id": "porch_light", "attributes": {"power": "on"}}]})
-    draft = await BedrockPlanner("test-model", "us-east-1", client=stub).plan("porch light on", context, None)
-    assert draft.planner == "bedrock"
-    assert "test-model" in draft.planner_detail and "900 in" in draft.planner_detail
-    assert draft.actions[0].device_id == "porch_light"
-    req = stub.requests[0]
-    assert req["toolConfig"]["toolChoice"] == {"any": {}}
-    assert req["inferenceConfig"]["temperature"] == 0
-
-
-async def test_bedrock_routine_actions_come_from_memory_not_model(context):
-    stub = StubBedrock({"intent": "routine", "routine_id": "bedtime", "summary": "Bedtime",
-                        "spoken_response": "Here's your bedtime plan.",
-                        "actions": [{"action": "set_device", "title": "evil", "device_id": "front_door",
-                                     "attributes": {"locked": False}}]})
-    draft = await BedrockPlanner("m", "us-east-1", client=stub).plan("bedtime", context, None)
-    assert draft.actions == []  # routine steps are expanded from stored memory by the engine
-
-
 async def test_engine_falls_back_to_local_and_discloses_it(settings, services, gateway, session_id):
-    failing = BedrockPlanner("m", "us-east-1", client=StubBedrock(error=RuntimeError("AccessDenied")))
+    failing = ScriptedPlanner(error=RuntimeError("AccessDenied"))
     eng = WorkflowEngine(settings, services.ledger, gateway, planner=failing)
     out = await eng.handle_utterance(session_id, "Get everything prepared for bedtime")
     run = out["run"]
     assert run["planner"] == "local"
-    assert "Bedrock call failed" in run["planner_detail"] and "AccessDenied" in run["planner_detail"]
+    assert "primary planner failed" in run["planner_detail"] and "AccessDenied" in run["planner_detail"]
 
 
-async def test_engine_rejects_hallucinated_device_from_llm(settings, services, gateway, session_id):
-    stub = StubBedrock({"intent": "device_control", "summary": "Garage", "spoken_response": "Opening.",
-                        "actions": [{"action": "set_device", "title": "Open garage", "device_id": "garage_door",
-                                     "attributes": {"open": True}}]})
-    eng = WorkflowEngine(settings, services.ledger, gateway, planner=BedrockPlanner("m", "r", client=stub))
+async def test_engine_rejects_unknown_device_from_a_planner(settings, services, gateway, session_id):
+    stub = ScriptedPlanner(PlanDraft(intent="device_control", summary="Garage", spoken_response="Opening.",
+                                     actions=[PlannedAction(action="set_device", title="Open garage",
+                                                            device_id="garage_door", attributes={"open": True})]))
+    eng = WorkflowEngine(settings, services.ledger, gateway, planner=stub)
     out = await eng.handle_utterance(session_id, "open the garage")
     assert out["run"] is None
     assert "Unknown device 'garage_door'" in out["message"]["text"]
 
 
-async def test_bedrock_retries_without_forced_tool_choice(context):
-    class Picky(StubBedrock):
-        def converse(self, **request):
-            if "toolChoice" in request["toolConfig"]:
-                self.requests.append(request)
-                raise RuntimeError("ValidationException: toolChoice is not supported by this model")
-            return super().converse(**request)
-
-    stub = Picky({"intent": "routine", "routine_id": "bedtime", "summary": "Bedtime", "spoken_response": "Plan."})
-    draft = await BedrockPlanner("m", "us-east-1", client=stub).plan("bedtime", context, None)
-    assert draft.routine_id == "bedtime"
-    assert "toolChoice=any unsupported" in draft.planner_detail
-    assert len(stub.requests) == 2
-
-
-async def test_string_preference_value_from_llm_is_coerced(settings, services, gateway, session_id):
-    stub = StubBedrock({"intent": "preference_update", "summary": "Pref", "spoken_response": "Saving.",
-                        "actions": [{"action": "update_preference", "title": "Bedtime 70",
-                                     "preference_key": "bedtime_temperature_f", "preference_value": "70"}]})
-    eng = WorkflowEngine(settings, services.ledger, gateway, planner=BedrockPlanner("m", "r", client=stub))
+async def test_string_preference_value_from_a_planner_is_coerced(settings, services, gateway, session_id):
+    stub = ScriptedPlanner(PlanDraft(intent="preference_update", summary="Pref", spoken_response="Saving.",
+                                     actions=[PlannedAction(action="update_preference", title="Bedtime 70",
+                                                            preference_key="bedtime_temperature_f",
+                                                            preference_value="70")]))
+    eng = WorkflowEngine(settings, services.ledger, gateway, planner=stub)
     out = await eng.handle_utterance(session_id, "I prefer 70 at bedtime")
     run = await eng.wait_idle(out["run"]["id"])
     assert run.status == "COMPLETED"

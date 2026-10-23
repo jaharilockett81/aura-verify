@@ -6,11 +6,9 @@ Bug (2026-10-23): "…before my overnight shift … 75 degrees" planned and exec
 import pytest
 
 from aura.models import RunStatus, StepStatus
-from aura.planner.bedrock import BedrockPlanner
 from aura.planner.local import LocalPlanner
 
 from test_engine import approve_all, plan, step
-from test_planners import StubBedrock
 
 
 @pytest.mark.parametrize("text", [
@@ -71,14 +69,6 @@ async def test_explicit_temperature_added_when_routine_has_no_thermostat_step(en
     out = apply_overrides(actions, {"thermostat": {"setpoint_f": 70}})
     assert [a.device_id for a in out] == ["porch_light", "thermostat"]
     assert out[1].attributes == {"setpoint_f": 70} and out[1].title == "Set the thermostat to 70°F"
-
-
-async def test_bedrock_routine_temperature_becomes_override(gateway):
-    context = (await gateway.call("get_household_context", {})).data
-    stub = StubBedrock({"intent": "routine", "routine_id": "overnight_shift", "summary": "Overnight",
-                        "spoken_response": "Here's the plan.", "thermostat_setpoint_f": 75})
-    draft = await BedrockPlanner("m", "us-east-1", client=stub).plan("overnight at 75", context, None)
-    assert draft.overrides == {"thermostat": {"setpoint_f": 75}} and draft.actions == []
 
 
 # ----- greetings -----------------------------------------------------------------------------------------

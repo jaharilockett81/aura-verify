@@ -7,13 +7,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def _load_dotenv() -> None:
     """Minimal .env loader so judges don't need python-dotenv. Never overrides real env vars."""
     for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parents[2] / ".env"):
@@ -35,9 +28,6 @@ class Settings:
     mcp_host: str
     mcp_port: int
     mcp_url: str
-    planner: str  # "auto" | "local" | "bedrock"
-    bedrock_model_id: str
-    aws_region: str
     sim_settle_ms: int
     verify_timeout_s: float
     verify_poll_s: float
@@ -62,9 +52,6 @@ def load_settings() -> Settings:
         mcp_host=mcp_host,
         mcp_port=mcp_port,
         mcp_url=os.getenv("AURA_MCP_URL", f"http://{mcp_host}:{mcp_port}/mcp"),
-        planner=os.getenv("AURA_PLANNER", "auto").lower(),
-        bedrock_model_id=os.getenv("AURA_BEDROCK_MODEL_ID", "us.amazon.nova-pro-v1:0"),
-        aws_region=os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1")),
         sim_settle_ms=int(os.getenv("AURA_SIM_SETTLE_MS", "600")),
         verify_timeout_s=float(os.getenv("AURA_VERIFY_TIMEOUT_S", "3.0")),
         verify_poll_s=float(os.getenv("AURA_VERIFY_POLL_S", "0.5")),
@@ -76,15 +63,3 @@ def load_settings() -> Settings:
         delivery_ack_s=float(os.getenv("AURA_DELIVERY_ACK_S", "20")),
         cors_origins=[o for o in os.getenv("AURA_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o],
     )
-
-
-def bedrock_credentials_present() -> bool:
-    """True if boto3 can find AWS credentials. Does not call AWS."""
-    if _env_bool("AURA_DISABLE_BEDROCK", False):
-        return False
-    try:
-        import boto3
-
-        return boto3.session.Session().get_credentials() is not None
-    except Exception:
-        return False

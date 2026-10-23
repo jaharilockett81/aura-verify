@@ -1,6 +1,6 @@
 """Local rule-based planner.
 
-This is NOT an LLM. It is a deterministic intent parser used when Amazon Bedrock is not configured, and it is
+This is NOT an LLM. It is a deterministic intent parser, and it is
 labeled as such everywhere it appears (API, UI, history). Its job is narrow: recognise routines, simple device
 commands, preference changes and reminders, and ask for missing information instead of guessing.
 """

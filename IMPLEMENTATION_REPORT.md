@@ -9,7 +9,7 @@ list.
 
 | Area | What changed | Tests |
 |---|---|---|
-| **75°F ran as 72°F** | Root cause: routine steps always took the saved preference and ignored a temperature in the same sentence. The planner now extracts explicit temperatures and applies them as one-off overrides (the plan says the value came from your request). Out-of-range or conflicting values ask a clarifying question instead of being replaced. The saved preference is not changed. Bedrock's planner maps its value the same way. | pytest `test_explicit_values.py`; e2e `chat.spec.ts` |
+| **75°F ran as 72°F** | Root cause: routine steps always took the saved preference and ignored a temperature in the same sentence. The planner now extracts explicit temperatures and applies them as one-off overrides (the plan says the value came from your request). Out-of-range or conflicting values ask a clarifying question instead of being replaced. The saved preference is not changed. | pytest `test_explicit_values.py`; e2e `chat.spec.ts` |
 | **Input bar covering messages** | Scroll margin under the newest message matches the input bar height; the view stays pinned to the bottom while replies and plan cards grow, and is released only when you scroll up. No visual redesign. | e2e `chat.spec.ts` (desktop and mobile) |
 | **Greetings / wake words** | "Hey Aura", "Hi", "Good morning, Alexa" etc. get a short reply that says AURA uses a local rule-based planner and lists what it can do. Wake words ("Alexa,", "OK Alexa", "Hey Aura") are stripped before planning. No run is created for a greeting. | pytest, e2e |
 | **Multi-action commands** | "Turn off the bedroom lights, set the thermostat to 75 degrees, and lock the front door" → one plan with one step per action; the lock still needs confirmation; every step runs through MCP and is verified by its own independent read. An unclear part triggers a question instead of being dropped. | pytest, e2e |
@@ -30,8 +30,6 @@ are the real code paths.
 
 ## Deferred / not done
 
-- **Live Bedrock.** Bedrock planner changes are tested with a stub client only. The live model has not
-  been asked to produce timers or corrections; those work in the local planner.
 - **Real microphone and speakers.** Not available in the build environment; tests use fakes.
 - **Alerts when the app is closed.** No push or OS notifications. Such alerts are honestly recorded as
   "Not delivered".

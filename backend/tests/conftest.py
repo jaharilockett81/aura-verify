@@ -16,12 +16,10 @@ from aura.services import HouseholdServices
 
 @pytest.fixture
 def settings(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("AURA_DISABLE_BEDROCK", "1")
     base = load_settings()
     return dataclasses.replace(
         base,
         db_path=tmp_path / "aura-test.db",
-        planner="local",
         sim_settle_ms=50,
         verify_timeout_s=0.6,
         verify_poll_s=0.1,

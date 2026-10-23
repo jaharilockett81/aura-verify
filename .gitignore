@@ -20,4 +20,3 @@ data/
 *.db-wal
 *.db-shm
 .env
-backend/bedrock-check-results.json

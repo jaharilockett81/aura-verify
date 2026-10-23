@@ -63,19 +63,7 @@ listed. Each entry says how we observed it. Nothing here is hypothetical.
 - **Workaround:** Also set `logging.getLogger("httpx2")` to WARNING (`backend/aura/main.py`).
 - **Suggestion:** Mention the dependency/logger in docs, or default it to WARNING.
 
-### 5. Could not exercise Amazon Bedrock in the build environment
-
-- **Tool:** Amazon Bedrock Runtime (Converse API) via boto3
-- **Task:** Run the Bedrock planner end to end.
-- **Steps:** The cloud build environment has placeholder AWS variables but no real credentials;
-  `sts:GetCallerIdentity` returned `InvalidClientTokenId` (2026-10-22). The live check therefore has to run on
-  Jahari's machine with a local AWS CLI profile (`backend/scripts/bedrock_check.py`).
-- **Expected / Actual:** N/A, not a product defect. Recorded so nobody reads the Bedrock code as live-tested.
-- **Severity:** Blocks the AWS Builder mini-challenge claim until resolved.
-- **Workaround:** Bedrock planner unit-tested with a stub client (request shape, tool parsing, fallback).
-- **Suggestion:** None for AWS yet. Update this entry after a live test.
-
-### 6. Responsive layouts trip Playwright strict mode
+### 5. Responsive layouts trip Playwright strict mode
 
 - **Tool / version:** Playwright Test 1.64.1
 - **Task:** Assert the MCP status pill is visible.
@@ -87,7 +75,7 @@ listed. Each entry says how we observed it. Nothing here is hypothetical.
 - **Workaround:** Scope locators to a region or use `.first()` on known-visible ordering.
 - **Suggestion:** A documented `visible: true` locator option example in the strictness docs would save time.
 
-### 7. Chromium now exposes unprefixed `SpeechRecognition`, so test fakes must replace both names
+### 6. Chromium now exposes unprefixed `SpeechRecognition`, so test fakes must replace both names
 
 - **Tool / version:** Playwright Test 1.64.1 driving the pre-installed Chromium build; Web Speech API
 - **Task:** Test AURA's voice-input wiring by replacing the browser recognizer with a scripted fake.

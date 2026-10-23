@@ -501,9 +501,8 @@ export default function Memory() {
               <div className="min-w-0 flex-1">
                 <div className="text-[15px] font-medium">Stored locally</div>
                 <p className="mt-0.5 text-[12px] leading-relaxed text-ink-mute">
-                  Memory and history live in a SQLite file on the machine running AURA. When Amazon Bedrock planning is
-                  enabled, your request text plus the device list, routine names and preferences needed to plan are
-                  sent to Bedrock in your AWS account. In local mode nothing leaves this machine.
+                  Memory and history live in a SQLite file on the machine running AURA, and planning runs locally. Voice
+                  input uses your browser's speech recognition (in Chrome, Google processes the audio).
                 </p>
               </div>
             </div>

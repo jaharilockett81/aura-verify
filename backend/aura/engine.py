@@ -257,10 +257,10 @@ class WorkflowEngine:
             return await self.fallback.plan(utterance, context, pending)
         try:
             return await self.planner.plan(utterance, context, pending)
-        except Exception as exc:  # noqa: BLE001 - any LLM failure falls back, and the fallback is disclosed
+        except Exception as exc:  # noqa: BLE001 - any planner failure falls back, and the fallback is disclosed
             log.warning("Primary planner failed: %r", exc)
             draft = await self.fallback.plan(utterance, context, pending)
-            draft.planner_detail = f"{draft.planner_detail} — used because the Bedrock call failed: {str(exc)[:160]}"
+            draft.planner_detail = f"{draft.planner_detail} — used because the primary planner failed: {str(exc)[:160]}"
             return draft
 
     def _compile(self, session_id: str, utterance: str, draft: PlanDraft, actions: list[PlannedAction]) -> Run:

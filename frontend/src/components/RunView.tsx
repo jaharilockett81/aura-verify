@@ -88,7 +88,7 @@ export function ProgressCard({ run, devices, action }: { run: Run; devices: numb
         <div className="min-w-0">
           <div className="truncate text-[17px] font-semibold tracking-tight lg:text-[20px]">{run.summary.replace(/^Run routine: /, '')}{run.routine_id ? ' routine' : ''}</div>
           <div className="text-[13px] text-ink-mute lg:text-[14px]">
-            {devices} device{devices === 1 ? '' : 's'} · {run.planner === 'bedrock' ? 'planned by Amazon Bedrock' : 'planned by local rules'}
+            {devices} device{devices === 1 ? '' : 's'} · planned by local rules
           </div>
         </div>
         {action && <div className="ml-auto self-start">{action}</div>}

@@ -31,8 +31,7 @@ Evidence for every "verified" line is in TEST_REPORT.md.
 |---|---|
 | All devices, reminders and notifications (simulator) | UI header/footer, MCP server instructions, README, every tool result has `simulated: true` |
 | Thermostat failure (fault injected by Demo controls) | Demo controls drawer and toast say so; AURA isn't told |
-| Local planner (deterministic rules, no LLM) when Bedrock isn't configured | Header "Planner · local rules (no LLM)", plan details, History badge |
-| Bedrock planner tests | Stub client only (TEST_REPORT "Bedrock" table) |
+| Local planner (deterministic rules, no LLM) | Header "Planner · local rules (no LLM)", plan details, History badge |
 | Voice input e2e test | Fake SpeechRecognition; tests our wiring, not recognition |
 
 ## Untested (needs Jahari's machine or wasn't possible here)
@@ -42,16 +41,12 @@ Evidence for every "verified" line is in TEST_REPORT.md.
 | Spoken replies through speakers; speech recognition in Edge/Safari | Headless container, no microphone or speakers | Real mic tested by Jahari in Chrome on macOS (TEST_REPORT); Safari needs Siri/Dictation enabled |
 | Safari / WebKit, Firefox | Browser downloads blocked by the container's network policy | Manual check on macOS |
 | Windows setup | Linux (automated) and macOS (Jahari) only | Follow README; Windows without `make` uses the manual commands |
-| GitHub publication | GitHub login in the container is invalid | Commands in docs/SETUP_AWS_AND_GITHUB.md |
 
 ## Submission blockers and decisions
 
-1. **Public repo** with the visible MIT license: required. Steps ready; needs Jahari.
+1. **Public repo** with the visible MIT license: done (github.com/jaharilockett81/aura-verify).
 2. **Demo video under 3 minutes on YouTube or Vimeo**: required. Script in DEMO_SCRIPT.md; needs recording.
-3. **AWS Builder mini challenge**: declare it only if `bedrock_check.py` passes live. Then update
-   TEST_REPORT.md, PRODUCT_FEEDBACK.md (Bedrock section) and the "Built with" line in DEVPOST_SUBMISSION.md
-   with the real results. If it doesn't pass in time, submit the Alexa+ track only. Nothing else depends on it.
-4. **Track declaration:** Alexa+ track, self-hosted MCP server path (spec 2025-11-25+, Streamable HTTP) plus
+3. **Track declaration:** Alexa+ track, self-hosted MCP server path (spec 2025-11-25+, Streamable HTTP) plus
    a simulated Alexa+ web experience. The MCP server is imported and called at runtime, which meets the
    runtime-hook requirement directly; the simulation fallback isn't needed for compliance.
 

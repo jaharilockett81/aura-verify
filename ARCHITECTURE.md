@@ -6,7 +6,7 @@
  Browser (React)                    API process (FastAPI :8000)                 MCP server (:8765/mcp)
  ─────────────────                  ─────────────────────────────               ──────────────────────
  Home / Command Center   REST+SSE   WorkflowEngine (agent)          MCP over    MCPServer (official SDK)
- Memory / History      ◄─────────►  ├─ Planner: Bedrock | local     Streamable  ├─ 15 tools
+ Memory / History      ◄─────────►  ├─ Planner: local rules         Streamable  ├─ 15 tools
  Demo controls                      ├─ Policy (risk, validation)    HTTP        └─ HouseholdServices
                                     ├─ MCPToolGateway (client) ─────────────────►   ├─ SmartHomeSimulator
                                     └─ Ledger (runs/steps/events)                   ├─ Memory
@@ -42,9 +42,6 @@ so the UI timeline and the history are the same record the engine acted on.
 1. **Intent.** The user's utterance is stored in the session. The engine calls `get_household_context`
    over MCP (preferences, routines, device catalogue, open issues).
 2. **Plan.** A planner returns a `PlanDraft`: intent, spoken response, and proposed actions.
-   - *Bedrock planner:* Converse API, `temperature=0`, one tool (`submit_plan`) with a JSON schema and
-     `toolChoice: any`, so the model must answer with structured input. The response is validated with
-     Pydantic. For routines, the model returns only a `routine_id`; actions come from memory.
    - *Local planner:* deterministic regex/keyword rules, labeled "Local rule-based planner
      (deterministic, no LLM)" in the API, UI and history.
    - Missing information produces a clarifying question and a pending slot on the session
@@ -105,10 +102,10 @@ or `FAILED` / `UNKNOWN`.
 | No success without evidence | Only `verify_action` VERIFIED (or an equal pre-check read) sets `VERIFIED`; acks set `ACCEPTED` |
 | No silent double-apply | Idempotency keys stored per command; a duplicate returns the original ack and isn't re-applied |
 | Bounded retries | Attempt budget counted server-side in `retry_failed_action`; auto-retry limit in the engine |
-| No unbounded waits | Per-tool timeout (`AURA_TOOL_TIMEOUT_S`), verification window, Bedrock read timeout |
+| No unbounded waits | Per-tool timeout (`AURA_TOOL_TIMEOUT_S`), verification window |
 | Ambiguous outcomes are explicit | Timeouts and unreadable devices become `UNKNOWN`; cancellation in flight becomes `UNKNOWN` |
 | No autonomous consequential actions | Policy tiers; sensitive steps and sensitive recovery options need explicit user action |
-| LLM can't escalate | Risk from policy; plan validated against the device catalogue; routine steps from memory |
+| Planner can't escalate | Risk from policy; plan validated against the device catalogue; routine steps from memory |
 | Honest labeling | Planner identity on every run; simulation notice in UI, API and MCP instructions |
 
 ## Data model (SQLite)

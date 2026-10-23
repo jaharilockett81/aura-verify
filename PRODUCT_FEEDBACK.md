@@ -35,34 +35,6 @@ verifiable agent easy to test honestly. Details in FRICTION_LOG.md entries 1–4
 
 ---
 
-## Amazon Bedrock (Runtime, Converse API) via boto3
-
-**What we used it for:** The planner (`backend/aura/planner/bedrock.py`): Converse with a system prompt,
-household context as JSON, a single `submit_plan` tool with a JSON schema, `toolChoice: {"any": {}}`,
-`temperature: 0`. The tool input is validated with Pydantic, unknown devices are rejected, and on any error
-AURA falls back to the local planner and records the reason. Default model id is configurable
-(`AURA_BEDROCK_MODEL_ID`).
-
-**Status:** Implemented and tested against a stub client only. **Not yet run against live Bedrock** because
-our build environment has no AWS credentials. We'll update this section after a live test; until then we
-make no claims about latency, quality or cost.
-
-**What worked well (from building against the API):** Converse's uniform request shape across models and
-the tool-use mechanism for forcing structured output fit an agent planner well. Usage token counts in the
-response let us show real numbers in the plan details instead of estimates.
-
-**What needs work:** To be filled in after live testing.
-
-**Onboarding:** Not measured yet (no live call made).
-
-**Would we build with it again?** Pending a live run.
-
-**AWS services used (for the AWS Builder mini challenge):** Amazon Bedrock Runtime (Converse API) for
-intent-to-plan generation with forced tool-use structured output. Eligibility should only be declared after
-the live test passes.
-
----
-
 ## FastAPI 0.157 / Uvicorn 0.54
 
 **Used for:** REST API, Server-Sent Events stream, serving the built UI; running the MCP Starlette app and

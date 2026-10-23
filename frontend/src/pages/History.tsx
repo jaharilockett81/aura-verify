@@ -143,7 +143,7 @@ export default function History() {
                       <span className="mt-0.5 block truncate text-[12px] text-ink-mute">“{r.utterance}”</span>
                       <span className="mt-1.5 flex flex-wrap gap-1.5">
                         <Badge tone={runTone(r.status)}>{RUN_STATUS_LABEL[r.status]}</Badge>
-                        <Badge tone="mute">{r.planner === 'bedrock' ? 'Bedrock' : 'Local rules'}</Badge>
+                        <Badge tone="mute">Local rules</Badge>
                       </span>
                     </span>
                     <ChevronRight className="mt-1 size-4 shrink-0 text-ink-mute" aria-hidden />

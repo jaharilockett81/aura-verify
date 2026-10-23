@@ -1,10 +1,7 @@
-# AURA Verify: Devpost submission (final text, pending the live Bedrock result)
+# AURA Verify: Devpost submission (final text)
 
 **Primary track:** Alexa+ (self-hosted MCP server, spec 2025-11-25+, Streamable HTTP), presented through a
 simulated Alexa+ web companion experience.
-**Mini challenge:** AWS Builder, *only if* the Amazon Bedrock planner is confirmed working against live
-Bedrock before submission. As of this draft it has not been run against live Bedrock (see Limitations).
-Do not declare the mini challenge until it has.
 
 **Tagline:** The household assistant that doesn't just act. It proves the action happened.
 
@@ -49,10 +46,9 @@ through a loop: **intent → plan → authorize → execute → verify → recov
   Explicit step states (PENDING, AWAITING_APPROVAL, RUNNING, VERIFYING, VERIFIED, FAILED, UNKNOWN,
   RECOVERING, CANCELLED), idempotency keys per attempt, per-call timeouts, a bounded verification window,
   and a server-enforced retry budget.
-- **Planning:** Amazon Bedrock Converse API with a forced `submit_plan` tool for strict structured output,
-  validated with Pydantic against the live device catalogue. Risk is assigned by AURA's policy, never by
-  the model; routine steps come from stored memory, not model output. Without AWS credentials, a
-  deterministic local planner is used and labeled "local rules (no LLM)" in the UI and history.
+- **Planning:** a deterministic local planner, labeled "local rules (no LLM)" in the UI and history.
+  Plans are validated with Pydantic against the live device catalogue; risk is assigned by AURA's policy,
+  and routine steps come from stored memory.
 - **Simulator:** a deterministic smart-home simulator with a command channel and a separate state channel,
   settle delays, and injectable faults (energy-saver hold, offline device, dropped command).
 - **Storage:** SQLite for preferences, routines, reminders, simulator state and the execution ledger.
@@ -102,13 +98,10 @@ stop when retrying won't help.
 ## Limitations
 
 - All devices are simulated; this is not an Amazon product and controls no real hardware.
-- The Bedrock planner has been tested only against a stub client so far; it has not yet been run against
-  live Bedrock.
 - The local planner is a pattern matcher for demo phrasings, not a general language model.
 - Reminder delivery is simulated; the API has no authentication and is meant to run on localhost.
 
 ## Built with
 
-python, fastapi, model-context-protocol, mcp-python-sdk, pydantic, sqlite, amazon-bedrock (planner,
-pending live verification), boto3, react, typescript, vite, tailwindcss, server-sent-events, web-speech-api,
+python, fastapi, model-context-protocol, mcp-python-sdk, pydantic, sqlite, react, typescript, vite, tailwindcss, server-sent-events, web-speech-api,
 pytest, playwright

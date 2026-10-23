@@ -72,11 +72,9 @@ show restarting the server in a terminal).*
 *History screen, then flash the MCP tool panel.*
 
 > "Under the hood: a self-hosted MCP server on the official Python SDK, protocol 2025-11-25 and newer, a
-> verification engine with explicit states, idempotency and bounded recovery, SQLite memory, and a planner
-> that uses Amazon Bedrock when configured. Devices here are simulated, and labeled that way. AURA Verify:
+> verification engine with explicit states, idempotency and bounded recovery, SQLite memory, and a local
+> rule-based planner. Devices here are simulated, and labeled that way. AURA Verify:
 > the assistant that proves it."
 
 ---
 
-**If Bedrock is configured for the recording**, mention it only if the header shows "Planner · Amazon
-Bedrock" during the take. Otherwise keep the line "uses Amazon Bedrock when configured".

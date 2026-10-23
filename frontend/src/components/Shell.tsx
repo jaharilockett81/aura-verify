@@ -53,7 +53,6 @@ function SystemPills({ className }: { className?: string }) {
   const { health, healthError, streamConnected } = useAura()
   const mcp = health?.mcp
   const planner = health?.planner ?? ''
-  const isBedrock = planner.startsWith('bedrock')
   return (
     <div className={cx('flex flex-wrap items-center gap-2', className)}>
       <Pill
@@ -67,8 +66,8 @@ function SystemPills({ className }: { className?: string }) {
             ? `MCP · ${mcp.transport === 'streamable-http' ? 'Streamable HTTP' : mcp.transport} · ${mcp.protocol_version ?? ''} · ${mcp.tools} tools`
             : 'MCP disconnected'}
       </Pill>
-      <Pill dot={isBedrock ? 'bg-lav-300' : 'bg-ink-mute'} title={planner}>
-        {isBedrock ? 'Planner · Amazon Bedrock (local fallback)' : 'Planner · local rules (no LLM)'}
+      <Pill dot="bg-ink-mute" title={planner}>
+        Planner · local rules (no LLM)
       </Pill>
       {!streamConnected && !healthError && <Pill className="text-recover-deep">Live updates reconnecting…</Pill>}
     </div>

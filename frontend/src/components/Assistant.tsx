@@ -164,7 +164,7 @@ function PlanCard({ runId }: { runId: string }) {
           </Button>
         )}
         <span className="ml-auto text-[11px] text-ink-mute" title={run.planner_detail}>
-          {run.planner === 'bedrock' ? 'Planned by Amazon Bedrock' : 'Planned by local rules (no LLM)'}
+          Planned by local rules (no LLM)
         </span>
       </div>
     </div>

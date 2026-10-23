@@ -37,8 +37,6 @@ export default defineConfig({
       AURA_DB_PATH: db,
       AURA_API_PORT: String(PORT),
       AURA_MCP_PORT: String(PORT + 1),
-      AURA_DISABLE_BEDROCK: '1',
-      AURA_PLANNER: 'local',
       AURA_SIM_SETTLE_MS: '300',
       AURA_VERIFY_TIMEOUT_S: '1.5',
       AURA_VERIFY_POLL_S: '0.3',
