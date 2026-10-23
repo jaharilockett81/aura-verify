@@ -167,28 +167,27 @@ Set the thermostat to 72°F."
 
 Do not declare the AWS Builder mini challenge until the live check passes; record its output here.
 
+## Manual checks by Jahari (macOS, Chrome, real microphone), 2026-10-23
+
+- `make setup` and `make serve` on macOS, app opened at http://127.0.0.1:8000 (header showed 15 MCP tools).
+- **Real speech recognition with the mic button:** spoken “Hey Aura, set a reminder at 4:32 PM to take out
+  trash”. Chrome's transcript was “Hey Aura, set a reminder at 4 32 p.m. to take out trash”; AURA planned
+  “Take out trash at 4:32 PM today (Fri, Oct 23)”, and after approval `create_reminder` and `verify_action`
+  ran over MCP and the run ended “Everything verified” (1/1). Screenshot from Jahari's run, 10:38 AM local.
+
 ## Not tested
 
-- **Real speech recognition and spoken replies** in Chrome/Edge/Safari (needs a microphone and speakers;
-  the build environment is headless). Automated tests use fake SpeechRecognition and speechSynthesis.
+- **Spoken replies through real speakers**, and speech recognition in Edge and Safari. Automated tests use
+  fake SpeechRecognition and speechSynthesis.
 - Reminder and timer alerts with the browser tab closed or the laptop asleep: there is no push channel, so
   these are recorded as "Not delivered" by design, which the tests check, but no phone/OS notification exists.
-- Timezones other than UTC for "at 9 pm" reminders (set `AURA_TZ`; only UTC was exercised).
+- A reminder alert actually firing at its due time outside UTC. Jahari's run planned and stored a 4:32 PM
+  reminder in the Mac's local time zone correctly, but the alert itself wasn't observed there.
 - **Safari / WebKit and Firefox.** Playwright's WebKit and Firefox downloads were blocked by this
   environment's network policy (HTTP 403 from the proxy for `cdn.playwright.dev` and
   `playwright.download.prss.microsoft.com`). Only Chromium was tested.
-- **Windows and macOS.** Setup, `make`, and the venv paths were only run on Linux. Windows users without
-  `make` should follow the manual commands in the README (`backend\.venv\Scripts\python`).
+- **Windows.** Setup, `make` and the venv paths were run on Linux (automated) and macOS (Jahari). Windows
+  users without `make` should follow the manual commands in the README (`backend\.venv\Scripts\python`).
 - Live Amazon Bedrock (see above).
 - Concurrency: two runs controlling the same device at the same time are not coordinated.
 - No automated accessibility audit; semantics checked by hand (labels, roles, focus styles, reduced motion).
-
-### Manual checklist for Jahari's machine (to fill in)
-
-| Check | Chrome (macOS/Win) | Safari (macOS) | Result |
-|---|---|---|---|
-| `make setup && make serve`, open http://127.0.0.1:8000 | | n/a | |
-| Mic button → allow microphone → say "Get everything prepared for bedtime" → plan appears | | Needs Siri/Dictation enabled | |
-| Voice replies toggle on → AURA reads replies aloud | | | |
-| Three scenarios by clicking (as in DEMO_SCRIPT.md) | | | |
-| Bedrock: `scripts/bedrock_check.py` all PASS | n/a | n/a | |

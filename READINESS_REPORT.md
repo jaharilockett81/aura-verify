@@ -39,9 +39,9 @@ Evidence for every "verified" line is in TEST_REPORT.md.
 
 | Item | Why | What to do |
 |---|---|---|
-| Real speech recognition and spoken replies | Headless container, no microphone | Manual check in Chrome; Safari needs Siri/Dictation enabled |
+| Spoken replies through speakers; speech recognition in Edge/Safari | Headless container, no microphone or speakers | Real mic tested by Jahari in Chrome on macOS (TEST_REPORT); Safari needs Siri/Dictation enabled |
 | Safari / WebKit, Firefox | Browser downloads blocked by the container's network policy | Manual check on macOS |
-| Windows and macOS setup | Only Linux available | Follow README; Windows without `make` uses the manual commands |
+| Windows setup | Linux (automated) and macOS (Jahari) only | Follow README; Windows without `make` uses the manual commands |
 | GitHub publication | GitHub login in the container is invalid | Commands in docs/SETUP_AWS_AND_GITHUB.md |
 
 ## Submission blockers and decisions
