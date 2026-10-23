@@ -171,3 +171,20 @@ async def test_time_given_before_the_task_is_kept_out_of_the_title(engine, servi
     reminder = out["run"]["steps"][0]["params"]["reminder"]
     assert reminder["title"] == "Call mom" and reminder["due"] == "21:00"
     assert "at 9:00 PM" in out["message"]["text"]
+
+
+@pytest.mark.parametrize("text", ["set a reminder to call mom at 7:50 p.m.", "remind me to call mom at 7:50 pm",
+                                  "Aura, set a reminder at 7:50pm to call mom", "remind me to call mom at 7:50 PM."])
+async def test_minutes_and_dotted_pm_are_parsed(engine, services, session_id, text):
+    out = await engine.handle_utterance(session_id, text)
+    reminder = out["run"]["steps"][0]["params"]["reminder"]
+    assert reminder["title"] == "Call mom" and reminder["due"] == "19:50"
+    assert "at 7:50 PM" in out["message"]["text"]
+
+
+async def test_time_first_then_task_in_the_answer(engine, services, session_id):
+    first = await engine.handle_utterance(session_id, "Aura set a reminder for 7:50 pm")
+    assert first["message"]["text"] == "What should I remind you about?"
+    out = await engine.handle_utterance(session_id, "feed Luna")
+    reminder = out["run"]["steps"][0]["params"]["reminder"]
+    assert reminder["title"] == "Feed Luna" and reminder["due"] == "19:50"

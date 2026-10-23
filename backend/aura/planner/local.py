@@ -66,8 +66,9 @@ TIME = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?")
 
 
 # "at 9", "at 9:30 pm", "for 9 pm", "by 9pm", or a bare "9 pm" (a bare number needs am/pm to count as a time).
-CLOCK_TIME = re.compile(r"\b(?:(?:at|for|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?"
-                        r"|(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.))(?![\w:])")
+# Speech-to-text writes "p.m." (and the final dot is often stripped with the sentence's own full stop).
+CLOCK_TIME = re.compile(r"\b(?:(?:at|for|by)\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\b\.?|p\.?m\b\.?)?"
+                        r"|(\d{1,2})(?::(\d{2}))?\s*(a\.?m\b\.?|p\.?m\b\.?))(?![\w:])")
 
 
 def _time_match(text: str) -> tuple[str, re.Match[str]] | None:
