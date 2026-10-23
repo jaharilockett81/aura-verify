@@ -39,7 +39,6 @@ Evidence for every "verified" line is in TEST_REPORT.md.
 
 | Item | Why | What to do |
 |---|---|---|
-| **Live Amazon Bedrock** (Converse + full workflows) | No valid AWS credentials in the cloud container | Run `backend/scripts/bedrock_check.py` with the `aura-verify` profile (docs/SETUP_AWS_AND_GITHUB.md) |
 | Real speech recognition and spoken replies | Headless container, no microphone | Manual check in Chrome; Safari needs Siri/Dictation enabled |
 | Safari / WebKit, Firefox | Browser downloads blocked by the container's network policy | Manual check on macOS |
 | Windows and macOS setup | Only Linux available | Follow README; Windows without `make` uses the manual commands |
