@@ -86,6 +86,12 @@ answer. AURA keeps six assurance levels separate and never merges them:
 - **Spoken replies.** With Voice replies on, AURA speaks its own transcript messages (plans, questions,
   verified results) and reminder and timer alerts, using the browser's speech synthesis. Plan replies say
   what will happen once you approve; nothing is spoken as done before it has been verified.
+- **“Aura” wake word.** Saying just “Aura” (or “Hey Aura”) gets “Yes, Jahari?” (the name comes from the
+  saved *What AURA calls you* preference), then the mic reopens for your request. When AURA asks a question
+  back (“What should I remind you about?”) after a spoken request, it listens for the answer too. Turn on
+  **Hands-free “Aura”** in Settings to have the Home page listen for the wake word without pressing the mic:
+  Chrome/Edge only, only while the tab is open, using the browser's speech recognition (Chrome sends that
+  audio to Google's speech service). Common mishearings (“Ora”, “Aurora”) count as the wake word.
 
 ### UI notes
 

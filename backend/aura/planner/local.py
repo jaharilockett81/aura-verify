@@ -39,6 +39,14 @@ GREETING = re.compile(r"^(hey|hi|hello|hiya|howdy|yo|good (morning|afternoon|eve
 THANKS = re.compile(r"^(thanks|thank you|thank you so much|thanks a lot|cheers|great|perfect|ok(ay)?|cool)( aura)?$")
 # Wake words and how people address the assistant: "Hey Aura,", "OK Alexa", "Aura:".
 WAKE = re.compile(r"^(?:(?:hey|ok|okay|hi|hello|yo)[ ,]+)?(?:alexa|aura|echo)\b[\s,.!:;-]*")
+# Just the wake word, the way you'd call Alexa: "Aura", "Hey Aura", "OK Aura". The reply is "Yes, <name>?".
+WAKE_ONLY = re.compile(r"^(?:(?:hey|ok|okay|yo)\s+)?aura$")
+
+
+def is_wake_only(utterance: str) -> bool:
+    return bool(WAKE_ONLY.fullmatch(" ".join(re.sub(r"[^a-z' ]", " ", utterance.lower()).split())))
+
+
 NUMBER_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
                 "eight": 8, "nine": 9, "ten": 10, "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40,
                 "forty-five": 45, "sixty": 60, "ninety": 90}
@@ -57,18 +65,32 @@ CORRECTION = re.compile(r"^(?:no|nope|sorry|wait|oops|actually|i meant|i mean|ma
 TIME = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?")
 
 
+# "at 9", "at 9:30 pm", "for 9 pm", "by 9pm", or a bare "9 pm" (a bare number needs am/pm to count as a time).
+CLOCK_TIME = re.compile(r"\b(?:(?:at|for|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?"
+                        r"|(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.))(?![\w:])")
+
+
+def _time_match(text: str) -> tuple[str, re.Match[str]] | None:
+    for m in CLOCK_TIME.finditer(text):
+        hour_s, minute_s, ampm = (m.group(1), m.group(2), m.group(3)) if m.group(1) else (m.group(4), m.group(5), m.group(6))
+        hour, minute, ampm = int(hour_s), int(minute_s or 0), (ampm or "").replace(".", "")
+        if ampm == "pm" and hour < 12:
+            hour += 12
+        if ampm == "am" and hour == 12:
+            hour = 0
+        if hour <= 23 and minute <= 59:
+            return f"{hour:02d}:{minute:02d}", m
+    return None
+
+
 def _parse_time(text: str) -> str | None:
-    m = re.search(r"\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?", text)
-    if not m:
-        return None
-    hour, minute, ampm = int(m.group(1)), int(m.group(2) or 0), (m.group(3) or "").replace(".", "")
-    if ampm == "pm" and hour < 12:
-        hour += 12
-    if ampm == "am" and hour == 12:
-        hour = 0
-    if hour > 23 or minute > 59:
-        return None
-    return f"{hour:02d}:{minute:02d}"
+    found = _time_match(text)
+    return found[0] if found else None
+
+
+def _say_time(hhmm: str) -> str:
+    hour, minute = map(int, hhmm.split(":"))
+    return f"{hour % 12 or 12}:{minute:02d} {'AM' if hour < 12 else 'PM'}"
 
 
 def _explicit_temperatures(text: str) -> list[int]:
@@ -172,7 +194,7 @@ class LocalPlanner:
         return PlanDraft(
             intent=kw["intent"], summary=kw["summary"], spoken_response=kw["spoken"],
             routine_id=kw.get("routine_id"), actions=kw.get("actions", []),
-            clarification_question=kw.get("question"), pending_slot=kw.get("pending"),
+            clarification_question=kw.get("question"), pending_slot=kw.get("pending"), listen=kw.get("listen", False),
             planner="local", planner_detail=PLANNER_LABEL,
         )
 
@@ -195,6 +217,10 @@ class LocalPlanner:
             if choice is None:
                 return None
             return self._timer_control(pending["op"], choice, context.get("timers", []))
+        if pending.get("slot") == "reminder_what":
+            # The answer to "What should I remind you about?", plus any time given with the first request.
+            answer = re.sub(r"^(?:remind me|to)\s+", "", text).strip()
+            return self._reminder(f"remind me to {answer} {pending.get('when', '')}".strip(), context, prefs)
         if pending.get("slot") == "setpoint_f":
             n = _first_number(text)
             if n is None:
@@ -213,7 +239,10 @@ class LocalPlanner:
         """Short greetings and thanks get a short, honest reply. Nothing else is treated as conversation."""
         bare = " ".join(re.sub(r"[^a-z' ]", " ", text).split())
         name = prefs.get("user_name", {}).get("value")
-        if GREETING.fullmatch(bare) or bare in ("aura", "hey aura", "hi aura", "hello aura"):
+        if WAKE_ONLY.fullmatch(bare):
+            return self._draft(intent="unknown", summary="Wake word", spoken=f"Yes{', ' + name if name else ''}?",
+                               listen=True)
+        if GREETING.fullmatch(bare) or bare in ("hi aura", "hello aura"):
             return self._draft(
                 intent="unknown", summary="Greeting",
                 spoken=(f"Hi{', ' + name if name else ''}. I'm running on AURA's local rule-based planner, so I can't "
@@ -301,14 +330,17 @@ class LocalPlanner:
             secs = _duration_s(rel.group(1))
             due_in = round(secs / 60, 2) if secs else None
             rest = (rest[:rel.start()] + rest[rel.end():]).strip()
-        due = _parse_time(rest)
-        if due:
-            rest = re.sub(r"\s*\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?", " ", rest).strip()
+        due = None
+        if found := _time_match(rest):
+            due, tm = found
+            rest = (rest[:tm.start()] + " " + rest[tm.end():]).strip()
+            rest = re.sub(r"\s{2,}", " ", rest)
         rest = re.sub(r"^(?:to|that i (?:need to|should|have to)|about|for)\s+", "", rest).strip(" ,.")
         rest = re.sub(r"\s+(?:tonight|today|later)$", "", rest).strip()
         if not rest:
             return self._draft(intent="clarify", summary="Reminder: what for?", spoken="What should I remind you about?",
-                               question="What should I remind you about?")
+                               question="What should I remind you about?",
+                               pending={"slot": "reminder_what", "when": m.group(1).strip()})
         title = self._cased(rest)
         title = title[0].upper() + title[1:]
         check = None
@@ -316,7 +348,7 @@ class LocalPlanner:
         if device_draft is not None and len(device_draft.actions) == 1 and device_draft.actions[0].action == "set_device":
             act = device_draft.actions[0]
             check = {"device_id": act.device_id, "expected": act.attributes}
-        when = f" in {_say_minutes(due_in)}" if due_in else (f" at {due}" if due else "")
+        when = f" in {_say_minutes(due_in)}" if due_in else (f" at {_say_time(due)}" if due else "")
         rest = self._cased(rest)
         how = (" When it's due, I'll check the device myself and tell you whether it's actually done."
                if check else

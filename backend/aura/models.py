@@ -90,6 +90,8 @@ class PlanDraft(BaseModel):
     overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # A correction ("actually, make it 74") replaces a plan that hasn't run yet.
     replaces_run_id: str | None = None
+    # The user only said the wake word ("Aura?"): the reply invites them to speak and the app listens again.
+    listen: bool = False
     planner: str = "local"
     planner_detail: str = ""
 

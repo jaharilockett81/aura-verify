@@ -4,7 +4,7 @@ import { ArrowUp, Loader2, Mic, MicOff, RefreshCw, ShieldCheck } from 'lucide-re
 import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
-import { useSpeechInput } from '../lib/speech'
+import { normalizeWake, speakAsync, speechFinished, useSpeechInput, useWakeWord } from '../lib/speech'
 import type { Message, Run } from '../lib/types'
 import { RUN_STATUS_LABEL, runTone } from '../lib/format'
 import { AuraOrb, useOrbState } from './Orb'
@@ -47,7 +47,7 @@ export function useConversation() {
   })
 
   const send = useCallback(
-    async (text: string): Promise<Run | null> => {
+    async (text: string): Promise<Message | null> => {
       const trimmed = text.trim()
       if (!trimmed) return null
       setError(null)
@@ -57,7 +57,7 @@ export function useConversation() {
         sessionRef.current = sid
         const res = await api.chat(sid, trimmed)
         await load(res.session_id)
-        return res.run
+        return res.message
       } catch (e: any) {
         setError(e.message)
         toast(e.message, 'error')
@@ -280,10 +280,31 @@ export function CenteredAssistant({
   extra?: React.ReactNode
 }) {
   const { messages, thinking, error, send, reset } = convo
+  const { handsFree, voiceReplies } = useAura()
   const [text, setText] = useState('')
+  // While a spoken request is in flight (and while AURA answers the wake word), hands-free listening pauses.
+  const [wakeBusy, setWakeBusy] = useState(false)
+  async function sendVoice(t: string) {
+    setWakeBusy(true)
+    try {
+      const reply = await send(normalizeWake(t))
+      if (reply?.meta?.listen || reply?.meta?.intent === 'clarify') {
+        // "Yes, Jahari?" or a question back ("What should I remind you about?"): say it (the provider already does
+        // when voice replies are on), then listen for the answer so a spoken conversation can carry on.
+        if (!voiceReplies) await speakAsync(reply.text, { interrupt: false })
+        await speechFinished()
+        voice.start()
+      }
+    } finally {
+      setWakeBusy(false)
+    }
+  }
   const voice = useSpeechInput((t) => {
     setText('')
-    send(t)
+    void sendVoice(t)
+  })
+  const wake = useWakeWord(handsFree && !voice.listening && !thinking && !wakeBusy, (command) => {
+    void sendVoice(command ? `Aura, ${command}` : 'Aura')
   })
   const empty = messages.length === 0 && !thinking
 
@@ -318,7 +339,7 @@ export function CenteredAssistant({
       )}
 
       <form onSubmit={submit} className={cx('w-full', !empty && 'sticky bottom-24 z-10 lg:bottom-6')}>
-        {(error || voice.error) && <div className="mb-3"><ErrorNote>{voice.error ?? error}</ErrorNote></div>}
+        {(error || voice.error || wake.error) && <div className="mb-3"><ErrorNote>{voice.error ?? wake.error ?? error}</ErrorNote></div>}
         <div
           className={cx(
             'glass-strong flex h-[56px] items-center gap-1 rounded-full pl-2 pr-1.5 transition-[box-shadow,transform,background-color] duration-[240ms] ease-[var(--ease-ios)] lg:h-16 lg:pl-2.5 lg:pr-2',
@@ -361,6 +382,11 @@ export function CenteredAssistant({
             {thinking ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <ArrowUp className="size-5" strokeWidth={2} />}
           </button>
         </div>
+        {handsFree && wake.supported && (
+          <p className="mt-2 text-center text-[12px] text-ink-mute" aria-live="polite">
+            {wake.active ? 'Hands-free: say "Aura" to start' : voice.listening ? 'Listening for your request…' : 'Hands-free paused'}
+          </p>
+        )}
       </form>
 
       <div className="mt-4 grid w-full grid-cols-2 gap-2.5 px-1 lg:mt-5 lg:grid-cols-4 lg:gap-3 lg:px-0" aria-label="Quick actions">

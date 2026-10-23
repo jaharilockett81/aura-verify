@@ -97,6 +97,21 @@ Screenshots of the new features were taken from the running dev server in headle
 backend runs; they are in the project files under `aura-verify/screenshots/demo-fixes/`. Reminder alerts in screenshots were made due
 with the labelled demo control "Make due now (demo)", which is recorded in the reminder's history.
 
+### Wake word and reminder follow-up (2026-10-23, ~11:00Z)
+
+After Jahari reported that "Aura, set a reminder" got no useful response: the planner asked "What should I
+remind you about?" but did not connect the answer to the question, and "for 9 pm" times ended up in the
+reminder title. Both fixed. Added the "Aura" → "Yes, Jahari?" wake reply and an optional hands-free mode.
+
+- pytest: **107 passed** (+8: wake word alone × 5 phrasings, saved name used, reminder question → answer
+  creates the reminder with its time, time before the task kept out of the title). The greeting test now uses
+  "Hi Aura"/"hello aura!" because a bare "Hey Aura" is the wake word by request; the assertions are unchanged.
+- Playwright: **19 passed**, two consecutive runs (+3 in `e2e/wake.spec.ts`, with fake SpeechRecognition and
+  speechSynthesis: hands-free "Aura" → "Yes, Jahari?" → request → reminder plan awaiting approval;
+  "Ora set a reminder" → question spoken → answer heard → reminder plan; mic button "Aura" reopens the mic,
+  typed "Aura" does not). `chat.spec.ts` and `conversation.spec.ts` greet with "Hi Aura" for the same reason.
+- Not tested: real wake-word listening with a microphone (needs Chrome on a real machine).
+
 ## Timing at default settings (manual, API-driven, 2026-10-22)
 
 Signature scenario with `AURA_SIM_SETTLE_MS=600`, `AURA_VERIFY_TIMEOUT_S=3.0`: plan 0.14 s → approve →

@@ -32,7 +32,7 @@ from .models import (
     StepStatus,
 )
 from .planner import Planner
-from .planner.local import LocalPlanner
+from .planner.local import LocalPlanner, is_wake_only
 from .policy import PlanValidationError, assess_risk, validate_actions
 
 log = logging.getLogger("aura.engine")
@@ -137,6 +137,8 @@ class WorkflowEngine:
         draft = await self._plan(utterance, context, pending)
         self.ledger.set_session_pending(session_id, None)
         meta = {"planner": draft.planner, "planner_detail": draft.planner_detail, "intent": draft.intent}
+        if draft.listen:
+            meta["listen"] = True
 
         if draft.intent == "clarify":
             slot = dict(draft.pending_slot or {})
@@ -251,6 +253,8 @@ class WorkflowEngine:
     async def _plan(self, utterance: str, context: dict[str, Any], pending: dict[str, Any] | None) -> PlanDraft:
         if self.planner is self.fallback or isinstance(self.planner, LocalPlanner):
             return await self.planner.plan(utterance, context, pending)
+        if is_wake_only(utterance):  # "Aura?" needs no model call: answer at once and listen
+            return await self.fallback.plan(utterance, context, pending)
         try:
             return await self.planner.plan(utterance, context, pending)
         except Exception as exc:  # noqa: BLE001 - any LLM failure falls back, and the fallback is disclosed

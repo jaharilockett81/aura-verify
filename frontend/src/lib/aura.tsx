@@ -19,6 +19,8 @@ interface AuraCtx {
   streamConnected: boolean
   voiceReplies: boolean
   setVoiceReplies: (v: boolean) => void
+  handsFree: boolean
+  setHandsFree: (v: boolean) => void
   toasts: Toast[]
   toast: (text: string, tone?: Toast['tone']) => void
   demoOpen: boolean
@@ -48,6 +50,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const [sessionId, setSid] = useState<string | null>(() => readLocal('aura.session'))
   const [streamConnected, setStreamConnected] = useState(false)
   const [voiceReplies, setVoice] = useState(() => readLocal('aura.voice') === '1')
+  const [handsFree, setHandsFreeState] = useState(() => readLocal('aura.handsfree') === '1')
   const [toasts, setToasts] = useState<Toast[]>([])
   const [demoOpen, setDemoOpen] = useState(false)
   const listeners = useRef(new Set<Listener>())
@@ -120,6 +123,11 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     if (!v && 'speechSynthesis' in window) window.speechSynthesis.cancel()
   }, [])
 
+  const setHandsFree = useCallback((v: boolean) => {
+    setHandsFreeState(v)
+    writeLocal('aura.handsfree', v ? '1' : '0')
+  }, [])
+
   const toast = useCallback((text: string, tone: Toast['tone'] = 'info') => {
     const id = Date.now() + Math.random()
     setToasts((t) => [...t, { id, text, tone }])
@@ -139,13 +147,15 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       streamConnected,
       voiceReplies,
       setVoiceReplies,
+      handsFree,
+      setHandsFree,
       toasts,
       toast,
       demoOpen,
       setDemoOpen,
     }),
     [health, healthError, refreshHealth, sessionId, newSession, ensureSession, setSessionId, subscribe,
-      streamConnected, voiceReplies, setVoiceReplies, toasts, toast, demoOpen],
+      streamConnected, voiceReplies, setVoiceReplies, handsFree, setHandsFree, toasts, toast, demoOpen],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

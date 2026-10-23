@@ -95,7 +95,8 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 }
 
 function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { voiceReplies, setVoiceReplies, setDemoOpen } = useAura()
+  const { voiceReplies, setVoiceReplies, handsFree, setHandsFree, setDemoOpen } = useAura()
+  const wakeSupported = typeof window !== 'undefined' && !!((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition)
   const closeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (!open) return
@@ -134,6 +135,17 @@ function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }
               <span className="block text-[12px] text-ink-mute">Read AURA's replies aloud (browser speech synthesis)</span>
             </span>
             <Switch on={voiceReplies} onChange={setVoiceReplies} label="Voice replies" />
+          </div>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px]">Hands-free “Aura”</span>
+              <span className="block text-[12px] text-ink-mute">
+                {wakeSupported
+                  ? 'Listens on Home for "Aura" while this tab is open, then answers and takes your request. Uses the browser\'s speech recognition (in Chrome, audio goes to Google\'s speech service).'
+                  : "This browser has no speech recognition. Use Chrome or Edge."}
+              </span>
+            </span>
+            <Switch on={handsFree && wakeSupported} onChange={(v) => wakeSupported && setHandsFree(v)} label="Hands-free Aura" />
           </div>
           <button
             onClick={() => {

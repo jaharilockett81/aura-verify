@@ -37,7 +37,7 @@ async function say(page: Page, text: string) {
 
 test('newest message and plan card stay visible above the input bar', async ({ page }) => {
   await page.goto('/')
-  await say(page, 'Hey Aura')
+  await say(page, 'Hi Aura')
   await expect(page.locator('[data-role="assistant"]').last()).toContainText('local rule-based planner')
   await say(page, "What's the thermostat at?")
   // The read-only check reports back in a second message once the state read finishes.

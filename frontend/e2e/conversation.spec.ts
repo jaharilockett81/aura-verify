@@ -92,7 +92,7 @@ test('reminder for an unobservable task is recorded as confirmed by the user, no
 
 test('greeting, correction and follow-up keep the conversation going without repeating the command', async ({ page }) => {
   await page.goto('/')
-  await say(page, 'Hey Aura')
+  await say(page, 'Hi Aura')
   await expect(page.locator('[data-role="assistant"]').last()).toContainText("can't chat freely")
   await say(page, 'Set the thermostat to 75')
   await say(page, 'Actually, make it 74')

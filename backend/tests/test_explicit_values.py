@@ -82,12 +82,26 @@ async def test_bedrock_routine_temperature_becomes_override(gateway):
 
 
 # ----- greetings -----------------------------------------------------------------------------------------
-@pytest.mark.parametrize("text", ["Hey Aura", "hey aura!", "Hi", "Hello there, Aura. How are you?", "Good morning, Alexa"])
+@pytest.mark.parametrize("text", ["Hi Aura", "hello aura!", "Hi", "Hello there, Aura. How are you?", "Good morning, Alexa"])
 async def test_greeting_gets_honest_reply_and_no_run(engine, session_id, text):
     out = await engine.handle_utterance(session_id, text)
     assert out["run"] is None
     reply = out["message"]["text"]
     assert reply.startswith("Hi") and "local rule-based planner" in reply and "can't chat freely" in reply
+
+
+@pytest.mark.parametrize("text", ["Aura", "Aura?", "Hey Aura", "hey aura!", "OK Aura."])
+async def test_wake_word_alone_answers_by_name_and_listens(engine, session_id, text):
+    out = await engine.handle_utterance(session_id, text)
+    assert out["run"] is None
+    assert out["message"]["text"] == "Yes, Jahari?"  # name comes from the saved user_name preference
+    assert out["message"]["meta"]["listen"] is True
+
+
+async def test_wake_word_answer_uses_the_saved_name(engine, services, session_id):
+    services.memory.set_preference("user_name", "Sam", source="user")
+    out = await engine.handle_utterance(session_id, "Aura")
+    assert out["message"]["text"] == "Yes, Sam?"
 
 
 async def test_greeting_followed_by_request_still_plans(gateway):

@@ -154,3 +154,20 @@ async def test_timer_survives_restart_from_storage(settings, services, engine, s
     fresh = HouseholdServices(settings)  # a new process reading the same database
     timer = fresh.timers.list()[0]
     assert timer["label"] == "Bread" and timer["status"] == "running" and 590 < timer["remaining_s"] <= 600
+
+
+async def test_set_a_reminder_asks_what_and_uses_the_answer(engine, services, session_id):
+    first = await engine.handle_utterance(session_id, "Aura, set a reminder")
+    assert first["run"] is None and first["message"]["text"] == "What should I remind you about?"
+    second = await engine.handle_utterance(session_id, "to take out the trash at 9 pm")
+    run = second["run"]
+    assert run is not None and run["status"] == RunStatus.AWAITING_APPROVAL
+    assert run["steps"][0]["params"]["reminder"]["title"] == "Take out the trash"
+    assert run["steps"][0]["params"]["reminder"]["due"] == "21:00"
+
+
+async def test_time_given_before_the_task_is_kept_out_of_the_title(engine, services, session_id):
+    out = await engine.handle_utterance(session_id, "set a reminder for 9 pm to call mom")
+    reminder = out["run"]["steps"][0]["params"]["reminder"]
+    assert reminder["title"] == "Call mom" and reminder["due"] == "21:00"
+    assert "at 9:00 PM" in out["message"]["text"]

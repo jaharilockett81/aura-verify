@@ -98,3 +98,98 @@ export function speakAsync(text: string, { interrupt = true }: { interrupt?: boo
     window.setTimeout(() => done(false), 2500)
   })
 }
+
+// Speech recognisers often hear "Aura" as "Ora" or "Aurora". Map those to the wake word so "Aura" alone gets
+// "Yes, <name>?" and "Ora, lock the door" still reaches the planner as a request to AURA.
+const WAKE = /^\s*(?:(hey|ok|okay)\s+)?(?:aura|ora|aurora|oura)\b[\s,.!?:;-]*/i
+
+export function normalizeWake(text: string): string {
+  return text.replace(WAKE, (_m, lead) => (lead ? `${lead} Aura, ` : 'Aura, ')).replace(/^(.*?Aura), $/i, '$1')
+}
+
+/** The command after the wake word ("" when only the wake word was said), or null if there's no wake word. */
+export function afterWakeWord(text: string): string | null {
+  const m = text.match(WAKE)
+  return m ? text.slice(m[0].length).trim() : null
+}
+
+/** Resolve once the browser has finished speaking (or after `maxMs`), so the mic doesn't hear AURA itself. */
+export function speechFinished(maxMs = 6000): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return resolve()
+    const started = Date.now()
+    const tick = () => {
+      if (!window.speechSynthesis.speaking || Date.now() - started > maxMs) resolve()
+      else window.setTimeout(tick, 120)
+    }
+    window.setTimeout(tick, 150)
+  })
+}
+
+/**
+ * Hands-free mode: keeps a continuous recogniser open while `enabled` and calls `onWake` when a phrase starts with
+ * the wake word, with the rest of the phrase ("" for "Aura" alone). Chrome ends continuous recognition after a
+ * silence, so it restarts itself; it stops for good on a permission error.
+ */
+export function useWakeWord(enabled: boolean, onWake: (command: string) => void) {
+  const supported = typeof window !== 'undefined' && recognitionCtor() !== null
+  const [active, setActive] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const cb = useRef(onWake)
+  cb.current = onWake
+
+  useEffect(() => {
+    const Ctor = recognitionCtor()
+    if (!enabled || !Ctor) return
+    let stopped = false
+    let rec: SpeechRecognitionLike | null = null
+    let restart: number | undefined
+    const begin = () => {
+      if (stopped) return
+      const r = new Ctor()
+      r.lang = 'en-US'
+      r.interimResults = false
+      r.continuous = true
+      r.onresult = (e: any) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (!e.results[i].isFinal) continue
+          const command = afterWakeWord(e.results[i][0].transcript)
+          if (command !== null) {
+            stopped = true
+            r.abort()
+            setActive(false)
+            cb.current(command)
+            return
+          }
+        }
+      }
+      r.onerror = (e: any) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          stopped = true
+          setError('Microphone permission was denied, so AURA can\'t listen for "Aura". You can still type or use the mic button.')
+        }
+      }
+      r.onend = () => {
+        setActive(false)
+        if (!stopped) restart = window.setTimeout(begin, 300)
+      }
+      rec = r
+      try {
+        r.start()
+        setActive(true)
+        setError(null)
+      } catch {
+        restart = window.setTimeout(begin, 1000)
+      }
+    }
+    begin()
+    return () => {
+      stopped = true
+      window.clearTimeout(restart)
+      rec?.abort()
+      setActive(false)
+    }
+  }, [enabled])
+
+  return { supported, active, error }
+}
