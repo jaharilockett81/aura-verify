@@ -28,15 +28,22 @@ export function useConversation() {
     }
   }, [])
 
+  // Tracks the session synchronously: a fast run can finish (and stream its reply) before React
+  // re-renders with a newly created session id.
+  const sessionRef = useRef<string | null>(sessionId)
   useEffect(() => {
+    sessionRef.current = sessionId
     if (sessionId) load(sessionId)
     else setMessages([])
   }, [sessionId, load])
 
   useAuraEvents((e) => {
-    if (e.type === 'message' && e.data.session_id === sessionId) {
+    const sid = sessionRef.current
+    if (e.type === 'message' && sid && e.data.session_id === sid) {
       setMessages((prev) => (prev.some((m) => m.id === e.data.id) ? prev : [...prev, e.data as Message]))
     }
+    // Belt and braces: re-read the transcript when any run finishes, in case an event was missed.
+    if (e.type === 'run.finished' && sid) load(sid)
   })
 
   useEffect(() => {
@@ -57,6 +64,7 @@ export function useConversation() {
       setThinking(true)
       try {
         const sid = await ensureSession()
+        sessionRef.current = sid
         const res = await api.chat(sid, trimmed)
         await load(res.session_id)
         return res.run
