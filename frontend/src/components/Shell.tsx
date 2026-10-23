@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { Activity, Clock3, Database, FlaskConical, House, Settings, X } from 'lucide-react'
 import { useAura } from '../lib/aura'
 import { cx } from './ui'
@@ -19,7 +19,7 @@ function Logo() {
       <span className="block size-7 rounded-full p-[3px]" style={{ background: 'conic-gradient(from 200deg, #f2b5c9, #b4ddf2, #9fd8c0, #c9c4d9, #f2b5c9)' }} aria-hidden>
         <span className="block size-full rounded-full bg-[#f9f7f6]" />
       </span>
-      <span className="text-[16px] font-semibold tracking-tight">AURA Verify</span>
+      <span className="text-[17px] font-semibold tracking-tight">AURA Verify</span>
     </div>
   )
 }
@@ -95,6 +95,17 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 
 function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { voiceReplies, setVoiceReplies, setDemoOpen } = useAura()
+  const closeRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const t = window.setTimeout(() => closeRef.current?.focus(), 60)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open, onClose])
   return (
     <div className={cx('fixed inset-0 z-40 transition-[visibility] duration-300', open ? 'pointer-events-auto visible' : 'pointer-events-none invisible')} aria-hidden={!open}>
       <div className={cx('absolute inset-0 bg-[#17343d]/20 transition-opacity', open ? 'opacity-100' : 'opacity-0')} onClick={onClose} />
@@ -103,7 +114,7 @@ function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }
         aria-modal="true"
         aria-label="Settings"
         className={cx(
-          'glass-strong absolute inset-x-0 bottom-0 rounded-t-[28px] p-5 pb-[max(env(safe-area-inset-bottom),24px)] transition-all duration-300',
+          'glass-strong absolute inset-x-0 bottom-0 rounded-t-[28px] p-5 pb-[max(env(safe-area-inset-bottom),24px)] transition-all duration-[320ms] ease-[var(--ease-ios)]',
           'sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:rounded-[28px]',
           open ? 'translate-y-0 opacity-100 sm:-translate-y-1/2' : 'translate-y-full sm:-translate-y-[46%] sm:opacity-0',
         )}
@@ -111,7 +122,7 @@ function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }
         <div className="mx-auto -mt-2 mb-3 h-1.5 w-10 rounded-full bg-ink/15 sm:hidden" aria-hidden />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[20px] font-semibold tracking-tight">Settings</h2>
-          <button onClick={onClose} aria-label="Close settings" className="grid size-8 place-items-center rounded-full bg-ink/[0.06] text-ink-soft hover:bg-ink/10">
+          <button ref={closeRef} onClick={onClose} aria-label="Close settings" className="grid size-8 place-items-center rounded-full bg-ink/[0.06] text-ink-soft hover:bg-ink/10">
             <X className="size-4" />
           </button>
         </div>
@@ -156,6 +167,8 @@ function RailButton({ label, onClick, children, tone }: { label: string; onClick
 export function Shell({ children }: { children: ReactNode }) {
   const { toasts, setDemoOpen } = useAura()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const location = useLocation()
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
   return (
     <div className="flex min-h-screen">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">
@@ -174,7 +187,7 @@ export function Shell({ children }: { children: ReactNode }) {
               title={label}
               className={({ isActive }) =>
                 cx(
-                  'grid size-11 place-items-center rounded-[14px] transition-colors',
+                  'grid size-11 place-items-center rounded-[14px] transition-all duration-200 active:scale-95',
                   isActive ? 'bg-white text-ink shadow-[0_4px_12px_-6px_rgba(23,52,61,0.35)]' : 'text-ink-soft hover:bg-white/60 hover:text-ink',
                 )
               }
@@ -193,7 +206,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="px-4 pb-2 pt-4 sm:px-8">
+        <header className="px-4 pb-2 pt-4 sm:px-8 lg:px-10">
           <div className="flex items-center justify-between gap-3">
             <Logo />
             <div className="flex items-center gap-2">
@@ -210,8 +223,10 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-4 sm:px-8 lg:pb-10">
-          {children}
+        <main id="main" className="mx-auto w-full max-w-[1320px] flex-1 px-4 pb-28 pt-4 sm:px-8 lg:px-10 lg:pb-10">
+          <div key={location.pathname} className="animate-page">
+            {children}
+          </div>
         </main>
 
         <footer className="space-y-3 px-6 pb-28 pt-4 text-center lg:pb-6">
@@ -243,7 +258,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </nav>
 
       <DemoDrawer />
-      <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsSheet open={settingsOpen} onClose={closeSettings} />
 
       <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex flex-col items-center gap-2 px-4 lg:bottom-6" aria-live="polite">
         {toasts.map((t) => (

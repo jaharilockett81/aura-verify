@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FlaskConical, RotateCcw, X, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
@@ -36,6 +36,13 @@ export function DemoDrawer() {
     if (demoOpen && (e.type === 'tool.call' || e.type === 'run.finished')) load()
   })
 
+  const closeRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!demoOpen) return
+    const t = window.setTimeout(() => closeRef.current?.focus(), 60)
+    return () => window.clearTimeout(t)
+  }, [demoOpen])
+
   useEffect(() => {
     if (!demoOpen) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDemoOpen(false)
@@ -70,7 +77,7 @@ export function DemoDrawer() {
         aria-modal="true"
         aria-labelledby="demo-title"
         className={cx(
-          'glass-strong absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col rounded-t-[28px] bg-night-850/95 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.8)] ring-1 ring-white/8 transition-all duration-300 ease-out',
+          'glass-strong absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col rounded-t-[28px] bg-night-850/95 shadow-[0_-20px_60px_-24px_rgba(23,52,61,0.35)] ring-1 ring-white/80 transition-all duration-[320ms] ease-[var(--ease-ios)]',
           'sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[82vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:rounded-[28px]',
           demoOpen ? 'translate-y-0 opacity-100 sm:-translate-y-1/2' : 'translate-y-full sm:-translate-y-[46%] sm:opacity-0',
         )}
@@ -89,7 +96,7 @@ export function DemoDrawer() {
               AURA is not told about them: it has to discover problems through verification.
             </p>
           </div>
-          <button onClick={() => setDemoOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-full bg-ink/[0.06] text-ink-soft hover:bg-ink/10 hover:text-ink" aria-label="Close demo controls">
+          <button ref={closeRef} onClick={() => setDemoOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-full bg-ink/[0.06] text-ink-soft hover:bg-ink/10 hover:text-ink" aria-label="Close demo controls">
             <X className="size-4" />
           </button>
         </div>

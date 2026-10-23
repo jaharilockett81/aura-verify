@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import {
   AlertTriangle,
@@ -23,7 +24,7 @@ export function Badge({ tone = 'mute', children, className }: { tone?: Tone; chi
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset whitespace-nowrap',
+        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-semibold ring-1 ring-inset whitespace-nowrap transition-colors duration-300',
         TONE_CLASSES[tone],
         className,
       )}
@@ -58,7 +59,7 @@ export function Button({
       {...rest}
       disabled={disabled || busy}
       className={cx(
-        'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold transition-all duration-150 active:scale-[0.97] disabled:opacity-45 disabled:pointer-events-none cursor-pointer',
+        'pressable inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold disabled:opacity-45 disabled:pointer-events-none cursor-pointer',
         size === 'sm' && 'h-8 px-3.5 text-xs',
         size === 'md' && 'h-10 px-4 text-sm',
         size === 'lg' && 'h-12 px-6 text-[15px]',
@@ -120,36 +121,92 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   )
 }
 
-/** iOS-style segmented control. */
+/** iOS-style segmented control with a sliding selection indicator. Arrow keys move the selection. */
 export function Segmented<T extends string>({
   value,
   onChange,
   options,
   label,
   className,
+  kind = 'radio',
 }: {
   value: T
   onChange: (v: T) => void
   options: { value: T; label: string }[]
   label: string
   className?: string
+  kind?: 'radio' | 'tabs'
 }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const [box, setBox] = useState<{ x: number; w: number } | null>(null)
+  const idx = Math.max(0, options.findIndex((o) => o.value === value))
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = refs.current[idx]
+      if (el) setBox({ x: el.offsetLeft, w: el.offsetWidth })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [idx, options.length, options.map((o) => o.label).join('|')])
+
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+    e.preventDefault()
+    const next = (idx + (e.key === 'ArrowRight' ? 1 : -1) + options.length) % options.length
+    onChange(options[next].value)
+    refs.current[next]?.focus()
+  }
+
   return (
-    <div role="radiogroup" aria-label={label} className={cx('inline-flex w-full gap-1 rounded-full sm:w-auto', className)}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          role="radio"
-          aria-checked={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={cx(
-            'h-8 flex-1 rounded-full px-4 text-[13px] font-medium transition-all sm:flex-none',
-            value === o.value ? 'bg-forest text-white shadow-[0_4px_12px_-6px_rgba(46,122,85,0.8)]' : 'bg-white/60 text-ink-soft hover:bg-white/85 hover:text-ink',
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div
+      role={kind === 'tabs' ? 'tablist' : 'radiogroup'}
+      aria-label={label}
+      onKeyDown={onKey}
+      className={cx('relative inline-flex w-full rounded-full border border-white/80 bg-white/45 p-1 backdrop-blur-xl sm:w-auto', className)}
+    >
+      {box && (
+        <span
+          aria-hidden
+          className="absolute top-1 bottom-1 rounded-full bg-forest shadow-[0_4px_12px_-6px_rgba(46,122,85,0.8)] transition-[transform,width] duration-300 ease-[var(--ease-spring)]"
+          style={{ transform: `translateX(${box.x - 4}px)`, width: box.w, left: 4 }}
+        />
+      )}
+      {options.map((o, i) => {
+        const on = value === o.value
+        return (
+          <button
+            key={o.value}
+            ref={(el) => {
+              refs.current[i] = el
+            }}
+            role={kind === 'tabs' ? 'tab' : 'radio'}
+            aria-checked={kind === 'radio' ? on : undefined}
+            aria-selected={kind === 'tabs' ? on : undefined}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            className={cx(
+              'relative z-10 h-8 flex-1 whitespace-nowrap rounded-full px-4 text-[14px] font-medium transition-colors duration-200 sm:flex-none',
+              on ? 'text-white' : 'text-ink-soft hover:text-ink',
+            )}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Smoothly expanding region. Content mounts on first open so collapsed rows stay light. */
+export function Expander({ open, children, className }: { open: boolean; children: ReactNode; className?: string }) {
+  const [mounted, setMounted] = useState(open)
+  useEffect(() => {
+    if (open) setMounted(true)
+  }, [open])
+  return (
+    <div className={cx('expander', className)} data-open={open ? 'true' : 'false'} aria-hidden={!open}>
+      <div>{mounted && children}</div>
     </div>
   )
 }

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, BedDouble, BriefcaseBusiness, CalendarClock, ChevronRight, Clock, Download, House, MessageSquareText, MoonStar, PawPrint, RotateCcw, ShieldCheck, Sun, Thermometer, Trash2, UserRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Badge, Button, ErrorNote, Segmented, SectionTitle, cx } from '../components/ui'
+import { Badge, Button, ErrorNote, Expander, Segmented, SectionTitle, cx } from '../components/ui'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
 import { timeAgo } from '../lib/format'
@@ -48,8 +48,19 @@ function PrefRow({ pref, onSaved }: { pref: Preference; onSaved: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const numeric = typeof pref.value === 'number'
   const { value: shown, unit } = fmt(pref)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setValue(String(pref.value)), [pref.value])
+  useEffect(() => {
+    if (!editing) return
+    const t = window.setTimeout(() => inputRef.current?.focus(), 30)
+    return () => window.clearTimeout(t)
+  }, [editing])
+  const cancel = () => {
+    setEditing(false)
+    setValue(String(pref.value))
+    setError(null)
+  }
 
   async function save() {
     setBusy(true)
@@ -83,26 +94,26 @@ function PrefRow({ pref, onSaved }: { pref: Preference; onSaved: () => void }) {
     <li>
       <button
         type="button"
-        onClick={() => setEditing(!editing)}
+        onClick={() => (editing ? cancel() : setEditing(true))}
         aria-label={`Edit ${pref.label}`}
         aria-expanded={editing}
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/40"
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-white/40 active:bg-white/60 lg:py-4"
       >
         <RowIcon k={pref.key} />
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-medium leading-tight">{pref.label}</span>
+          <span className="block text-[15px] font-medium leading-tight lg:text-[16px]">{pref.label}</span>
           <span className="mt-1 block truncate text-[12px] text-ink-soft" title={pref.key}>
             {pref.source === 'seed' ? 'Default setting' : `Set by ${pref.source}`}
           </span>
           <span className="block text-[12px] text-ink-mute">Updated {timeAgo(pref.updated_at)}</span>
         </span>
-        <span className="shrink-0 text-[15px] font-medium tabular-nums text-ink">
+        <span className="shrink-0 text-[15px] font-medium tabular-nums text-ink lg:text-[16px]">
           {shown}
           {unit}
         </span>
-        <ChevronRight className={cx('size-4 shrink-0 text-ink-mute transition-transform', editing && 'rotate-90')} aria-hidden />
+        <ChevronRight className={cx('size-4 shrink-0 text-ink-mute transition-transform duration-200', editing && 'rotate-90')} aria-hidden />
       </button>
-      {editing && (
+      <Expander open={editing}>
         <form
           className="flex flex-wrap items-center gap-2 px-4 pb-3.5 pl-16"
           onSubmit={(e) => {
@@ -113,14 +124,14 @@ function PrefRow({ pref, onSaved }: { pref: Preference; onSaved: () => void }) {
           <label className="sr-only" htmlFor={`pref-${pref.key}`}>{pref.label}</label>
           <input
             id={`pref-${pref.key}`}
-            autoFocus
+            ref={inputRef}
             type={numeric ? 'number' : pref.unit === 'time' ? 'time' : 'text'}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             className="h-9 w-32 rounded-[10px] border border-white bg-white/85 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#f2b5c9]"
           />
           <Button size="sm" variant="primary" type="submit" busy={busy}>Save</Button>
-          <Button size="sm" variant="ghost" type="button" onClick={() => { setEditing(false); setValue(String(pref.value)); setError(null) }}>
+          <Button size="sm" variant="ghost" type="button" onClick={cancel}>
             Cancel
           </Button>
           <Button size="sm" variant="ghost" type="button" onClick={reset} busy={busy} aria-label={`Reset ${pref.label} to default`} title="Reset to default">
@@ -128,7 +139,7 @@ function PrefRow({ pref, onSaved }: { pref: Preference; onSaved: () => void }) {
           </Button>
           {error && <div className="w-full"><ErrorNote>{error}</ErrorNote></div>}
         </form>
-      )}
+      </Expander>
     </li>
   )
 }
@@ -174,12 +185,12 @@ function RoutineRow({ routine, prefs }: { routine: Routine; prefs: Preference[] 
   return (
     <div>
       <div className="flex items-center gap-3 px-4 py-3.5">
-        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={`${routine.name} steps`} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <span className="grid size-9 shrink-0 place-items-center" aria-hidden>
             <Icon className={cx('size-[22px]', color)} strokeWidth={1.5} />
           </span>
           <span className="min-w-0">
-            <span className="block text-[15px] font-medium leading-tight">{routine.name}</span>
+            <span className="block text-[15px] font-medium leading-tight lg:text-[16px]">{routine.name}</span>
             <span className="mt-0.5 block text-[12px] text-ink-mute">{routine.steps.length} steps</span>
             <span className="block truncate text-[12px] text-ink-soft">{routine.description}</span>
           </span>
@@ -187,13 +198,13 @@ function RoutineRow({ routine, prefs }: { routine: Routine; prefs: Preference[] 
         <button
           onClick={run}
           disabled={busy}
-          className="h-7 shrink-0 rounded-full bg-white/85 px-3.5 text-[12px] font-medium text-ink shadow-[0_1px_4px_rgba(23,52,61,0.12)] hover:bg-white disabled:opacity-50"
+          className="pressable h-7 shrink-0 rounded-full bg-white/85 px-3.5 text-[12px] font-medium text-ink shadow-[0_1px_4px_rgba(23,52,61,0.12)] hover:bg-white disabled:opacity-50"
           aria-label={`Plan ${routine.name}`}
         >
           {busy ? 'Planning…' : 'Plan'}
         </button>
       </div>
-      {open && (
+      <Expander open={open}>
         <div className="px-4 pb-4 pl-16">
           <ol className="space-y-1.5 text-[13px] text-ink-soft">
             {routine.steps.map((s, i) => (
@@ -208,7 +219,7 @@ function RoutineRow({ routine, prefs }: { routine: Routine; prefs: Preference[] 
             preferences each time the routine is planned.
           </p>
         </div>
-      )}
+      </Expander>
     </div>
   )
 }
@@ -267,13 +278,14 @@ export default function Memory() {
   }
 
   return (
-    <div className="mx-auto max-w-[560px] space-y-6">
+    <div className="mx-auto max-w-[560px] space-y-6 lg:max-w-[1080px]">
       <div className="px-1">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight">Memory</h1>
-        <p className="mt-0.5 text-[15px] text-ink">What AURA remembers about your home.</p>
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight lg:text-[32px]">Memory</h1>
+        <p className="mt-0.5 text-[15px] text-ink lg:text-[16px]">What AURA remembers about your home.</p>
       </div>
 
       <Segmented
+        className="lg:max-w-[520px]"
         label="Filter memory"
         value={filter}
         onChange={setFilter}
@@ -286,6 +298,8 @@ export default function Memory() {
       />
       {error && <ErrorNote>{error}</ErrorNote>}
 
+      <div className={cx('grid grid-cols-1 items-start gap-6', filter === 'all' && 'lg:grid-cols-2')}>
+      <div className="min-w-0 space-y-6">
       {show('prefs') &&
         prefCategories.slice(0, 1).map((c) => (
           <section key={c} aria-label={c}>
@@ -332,6 +346,8 @@ export default function Memory() {
           </section>
         ))}
 
+      </div>
+      <div className="min-w-0 space-y-6">
       {show('prefs') && (
         <section aria-label="Saved by AURA">
           <SectionTitle>Saved by AURA</SectionTitle>
@@ -430,6 +446,8 @@ export default function Memory() {
           </div>
         </section>
       )}
+      </div>
+      </div>
     </div>
   )
 }

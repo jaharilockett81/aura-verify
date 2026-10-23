@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowUp, Mic, MicOff, RefreshCw, ShieldCheck } from 'lucide-react'
+import { ArrowUp, Loader2, Mic, MicOff, RefreshCw, ShieldCheck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
 import { speak, useSpeechInput } from '../lib/speech'
 import type { Message, Run } from '../lib/types'
 import { RUN_STATUS_LABEL, runTone } from '../lib/format'
-import { Orb } from './Orb'
+import { AuraOrb, useOrbState } from './Orb'
 import type { OrbState } from './Orb'
+import { useLiveRun } from '../lib/useLiveRun'
+import { useMediaQuery } from '../lib/useMediaQuery'
 import { Badge, Button, ErrorNote, StatusIcon, cx } from './ui'
 
 export function useConversation() {
@@ -253,14 +255,11 @@ export function CenteredAssistant({
   })
   const empty = messages.length === 0 && !thinking
 
-  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
-  const orbState: OrbState = voice.listening
-    ? 'listening'
-    : thinking
-      ? 'thinking'
-      : lastAssistant?.meta?.recovery
-        ? 'attention'
-        : 'idle'
+  // The orb follows the latest workflow in this conversation, live from the event stream.
+  const lastRunId = [...messages].reverse().find((m) => m.run_id)?.run_id ?? null
+  const liveRun = useLiveRun(lastRunId)
+  const orbState: OrbState = useOrbState(liveRun, { listening: voice.listening, thinking })
+  const desktop = useMediaQuery('(min-width: 1024px)')
 
   function submit(e?: React.FormEvent) {
     e?.preventDefault()
@@ -272,11 +271,12 @@ export function CenteredAssistant({
   return (
     <section aria-label="Talk to AURA" className="flex w-full flex-col items-center">
       <div className="flex flex-col items-center text-center">
-        <h1 className="text-[29px] font-semibold leading-[1.15] tracking-[-0.02em] text-ink sm:text-[32px]">{greeting}</h1>
-        <p className="mt-2.5 max-w-[15rem] text-[15px] leading-snug text-ink">{subtitle}</p>
-        <div className={cx('transition-all duration-500', empty ? 'mt-7 mb-5' : 'mt-5 mb-4')}>
-          <Orb state={orbState} size={empty ? 156 : 92} />
+        <h1 className="text-[29px] font-semibold leading-[1.15] tracking-[-0.02em] text-ink sm:text-[32px] lg:text-[42px]">{greeting}</h1>
+        <p className="mt-2.5 max-w-[15rem] text-[15px] leading-snug text-ink lg:max-w-none lg:text-[18px] lg:text-ink-soft">{subtitle}</p>
+        <div className={cx('transition-all duration-500', empty ? 'mt-6 mb-4' : 'mt-4 mb-3')}>
+          <AuraOrb state={orbState} size={empty ? (desktop ? 176 : 156) : desktop ? 112 : 92} />
         </div>
+        <p className="sr-only" aria-live="polite">{orbState === 'idle' ? '' : orbState}</p>
       </div>
 
       {!empty && (
@@ -289,8 +289,8 @@ export function CenteredAssistant({
         {(error || voice.error) && <div className="mb-3"><ErrorNote>{voice.error ?? error}</ErrorNote></div>}
         <div
           className={cx(
-            'glass-strong flex h-[56px] items-center gap-1 rounded-full pl-2 pr-1.5 transition-all',
-            voice.listening ? 'ring-2 ring-[#9fd8c0]' : 'focus-within:ring-2 focus-within:ring-[#f2b5c9]/70',
+            'glass-strong flex h-[56px] items-center gap-1 rounded-full pl-2 pr-1.5 transition-[box-shadow,transform,background-color] duration-[240ms] ease-[var(--ease-ios)] lg:h-16 lg:pl-2.5 lg:pr-2',
+            voice.listening ? 'ring-2 ring-[#9fd8c0]' : 'focus-within:-translate-y-px focus-within:bg-white/90 focus-within:shadow-[0_0_0_4px_rgba(242,181,201,0.35),0_18px_40px_-18px_rgba(23,52,61,0.35)]',
           )}
         >
           <button
@@ -298,7 +298,7 @@ export function CenteredAssistant({
             onClick={voice.listening ? voice.stop : voice.start}
             disabled={!voice.supported || thinking}
             className={cx(
-              'grid size-10 shrink-0 place-items-center rounded-full transition',
+              'grid size-10 shrink-0 place-items-center rounded-full transition duration-150 active:scale-90 lg:size-11',
               voice.listening ? 'bg-[#d9eee0] text-verified-deep' : 'bg-white/90 text-ink shadow-[0_1px_4px_rgba(23,52,61,0.12)] hover:bg-white',
               !voice.supported && 'cursor-not-allowed opacity-40',
             )}
@@ -317,20 +317,21 @@ export function CenteredAssistant({
             placeholder={voice.listening ? voice.interim || 'Listening…' : 'Ask AURA anything about your home...'}
             maxLength={500}
             autoComplete="off"
-            className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-[14px] text-ink placeholder:text-[13px] placeholder:text-ink-soft focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-[14px] text-ink placeholder:text-[13px] placeholder:text-ink-soft focus:outline-none lg:text-[16px] lg:placeholder:text-[16px]"
           />
           <button
             type="submit"
             disabled={!text.trim() || thinking}
-            className="grid size-[42px] shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#f4a3b6] to-[#ec8aa3] text-white shadow-[0_6px_14px_-6px_rgba(220,110,140,0.8)] transition hover:brightness-105 disabled:opacity-60"
+            className="grid size-[42px] shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#f4a3b6] to-[#ec8aa3] text-white shadow-[0_6px_14px_-6px_rgba(220,110,140,0.8)] transition duration-150 hover:brightness-105 active:scale-90 disabled:opacity-55 lg:size-12"
             aria-label="Send"
+            aria-busy={thinking}
           >
-            <ArrowUp className="size-5" strokeWidth={2} />
+            {thinking ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <ArrowUp className="size-5" strokeWidth={2} />}
           </button>
         </div>
       </form>
 
-      <div className="mt-4 grid w-full grid-cols-2 gap-2.5 px-1" aria-label="Quick actions">
+      <div className="mt-4 grid w-full grid-cols-2 gap-2.5 px-1 lg:mt-5 lg:grid-cols-4 lg:gap-3 lg:px-0" aria-label="Quick actions">
         {chips.map(({ label, icon: Icon, onClick, title, tint, iconColor, busy }) => (
           <button
             key={label}
@@ -339,9 +340,8 @@ export function CenteredAssistant({
             disabled={busy || thinking}
             title={title}
             className={cx(
-              'flex h-[46px] items-center justify-center gap-2.5 rounded-[16px] border border-white/80 px-3 text-left text-[13px] font-medium text-ink shadow-[0_6px_18px_-12px_rgba(23,52,61,0.3)] backdrop-blur-xl transition active:scale-[0.98] disabled:opacity-50',
+              'pressable flex h-[46px] items-center justify-center gap-2.5 rounded-[16px] border border-white/80 px-3 text-left text-[13px] font-medium text-ink shadow-[0_6px_18px_-12px_rgba(23,52,61,0.3)] backdrop-blur-xl hover:-translate-y-px disabled:opacity-50 lg:h-[52px] lg:text-[15px]',
               tint ?? 'bg-white/60',
-              'hover:brightness-[1.02]',
             )}
           >
             <Icon className={cx('size-[18px] shrink-0', iconColor ?? 'text-ink')} strokeWidth={1.6} aria-hidden />

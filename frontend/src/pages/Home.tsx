@@ -59,37 +59,39 @@ export default function Home() {
       disabled={busyDemo || convo.thinking}
       aria-label="Run failure demo"
       title="Signature demo: resets the simulated home, puts the thermostat into an energy-saver hold, then plans your overnight routine. The hub will say OK to 72°F; watch AURA notice it did not happen."
-      className="flex w-full items-center gap-3.5 rounded-[20px] border border-white/80 bg-gradient-to-r from-[#fbe3e2]/90 via-[#fdeadd]/90 to-[#fef1d9]/90 px-3.5 py-3.5 text-left shadow-[0_10px_28px_-16px_rgba(200,120,110,0.55)] transition active:scale-[0.99] disabled:opacity-60"
+      className="pressable flex w-full items-center gap-3.5 rounded-[20px] border border-white/80 bg-gradient-to-r from-[#fbe3e2]/90 via-[#fdeadd]/90 to-[#fef1d9]/90 px-3.5 py-3.5 text-left shadow-[0_10px_28px_-16px_rgba(200,120,110,0.55)] transition active:scale-[0.99] disabled:opacity-60"
     >
       <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#f9d0d8] shadow-[0_4px_10px_-6px_rgba(217,91,112,0.6)]">
         <Zap className="size-[22px] text-failed" strokeWidth={1.6} aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-ink">{busyDemo ? 'Starting failure demo…' : 'Run failure demo'}</span>
-        <span className="mt-0.5 block text-[12px] leading-snug text-ink-soft">See how AURA detects and recovers from device issues.</span>
+        <span className="block text-[15px] font-semibold text-ink lg:text-[17px]">{busyDemo ? 'Starting failure demo…' : 'Run failure demo'}</span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-ink-soft lg:text-[14px]">See how AURA detects and recovers from device issues.</span>
       </span>
       <ChevronRight className="size-5 shrink-0 text-ink-soft" aria-hidden />
     </button>
   )
 
   return (
-    <div className="mx-auto w-full max-w-[440px] pb-6">
+    <div className="mx-auto w-full max-w-[440px] pb-6 lg:max-w-[1080px]">
+      <div className="mx-auto w-full lg:max-w-[760px]">
       <CenteredAssistant
         convo={convo}
         greeting={
           <>
-            {greeting()},<br />
-            {name || 'there'}.
+            {greeting()},<br className="lg:hidden" /> {name || 'there'}.
           </>
         }
         subtitle="Your home, thoughtfully looked after."
         chips={chips}
         extra={failureCard}
       />
+      </div>
 
-      <section aria-labelledby="home-title" className="mt-7">
+      <div className="grid grid-cols-1 gap-7 lg:mt-10 lg:grid-cols-2 lg:gap-8">
+      <section aria-labelledby="home-title" className="mt-7 lg:mt-0">
         <div className="mb-3 flex items-baseline justify-between px-1">
-          <h2 id="home-title" className="text-[16px] font-semibold tracking-tight">
+          <h2 id="home-title" className="text-[16px] font-semibold tracking-tight lg:text-[20px]">
             Household status
           </h2>
           <button onClick={() => setAllDevices(!allDevices)} className="text-[13px] font-medium text-ink-soft hover:text-ink">
@@ -99,9 +101,9 @@ export default function Home() {
         <DeviceGrid all={allDevices} />
       </section>
 
-      <section aria-labelledby="activity-title" className="mt-7">
+      <section aria-labelledby="activity-title" className="lg:mt-0">
         <div className="mb-3 flex items-baseline justify-between px-1">
-          <h2 id="activity-title" className="text-[16px] font-semibold tracking-tight">
+          <h2 id="activity-title" className="text-[16px] font-semibold tracking-tight lg:text-[20px]">
             Recent activity
           </h2>
           <Link to="/history" className="text-[13px] font-medium text-ink-soft hover:text-ink">
@@ -113,7 +115,7 @@ export default function Home() {
             <Link to={`/runs/${issues[0].run_id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/40">
               <StatusIcon status="FAILED" className="size-7" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-medium">
+                <span className="block truncate text-[14px] font-medium lg:text-[16px]">
                   {issues.length} unresolved issue{issues.length > 1 ? 's' : ''}: {issues[0].title}
                 </span>
                 <span className="block text-[12px] text-ink-mute">{issues[0].status.toLowerCase()}</span>
@@ -124,14 +126,14 @@ export default function Home() {
           {recent.length === 0 && issues.length === 0 ? (
             <p className="px-4 py-4 text-[14px] text-ink-soft">Nothing yet. Try one of the actions above.</p>
           ) : (
-            recent.map((r) => (
-              <Link key={r.id} to={`/runs/${r.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/40">
+            recent.map((r, i) => (
+              <Link key={r.id} to={`/runs/${r.id}`} style={{ animationDelay: `${i * 40}ms` }} className="flex animate-rise items-center gap-3 px-4 py-3.5 transition-colors hover:bg-white/40">
                 <RunDot status={r.status} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium">
+                  <span className="block truncate text-[14px] font-medium lg:text-[16px]">
                     {RUN_STATUS_LABEL[r.status]}: {r.summary.replace(/^Run routine: /, '')}
                   </span>
-                  <span className="block truncate text-[12px] text-ink-mute">{timeAgo(r.created_at)}</span>
+                  <span className="block truncate text-[12px] text-ink-mute lg:text-[14px]">{timeAgo(r.created_at)}</span>
                 </span>
                 <ChevronRight className="size-4 shrink-0 text-ink-mute" />
               </Link>
@@ -139,6 +141,7 @@ export default function Home() {
           )}
         </div>
       </section>
+      </div>
     </div>
   )
 }

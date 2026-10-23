@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Info, ShieldCheck, Square, Volume2 } from 'lucide-react'
 import { useDevices } from '../components/Devices'
+import { AuraOrb, useOrbState } from '../components/Orb'
 import { ProgressCard, RunReport, StepCard, ToolLog } from '../components/RunView'
 import { Badge, Button, Empty, ErrorNote, Segmented, cx } from '../components/ui'
 import { api } from '../lib/api'
@@ -22,6 +23,7 @@ export default function CommandCenter() {
   const [panel, setPanel] = useState<'steps' | 'log'>('steps')
   const refetch = useRef<number | null>(null)
   const { devices } = useDevices()
+  const orbState = useOrbState(run, {})
   const names = Object.fromEntries(devices.map((d) => [d.device_id, d.device_id === 'front_door' ? 'Front door' : d.name]))
 
   // /command without an id shows the most recent run.
@@ -98,12 +100,33 @@ export default function CommandCenter() {
   const stepName = (t: string, action: string) =>
     action === 'create_reminder' ? 'Reminder' : action === 'update_preference' ? 'Memory' : names[t.replace(/^device:/, '')] ?? t.replace(/^device:/, '')
 
-  return (
-    <div className="mx-auto grid max-w-[1000px] grid-cols-1 gap-6 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
-      <div className="min-w-0 space-y-4">
-        {title}
+  const orbLabel: Record<string, string> = {
+    idle: 'Idle',
+    processing: 'Working',
+    approval: 'Waiting for your confirmation. Nothing unapproved has run.',
+    verified: 'Verified',
+    failure: 'Needs attention',
+    recovering: 'Recovering',
+    listening: 'Listening',
+  }
 
-        <div className="flex flex-wrap items-center gap-2 px-1 text-[12px] text-ink-mute">
+  return (
+    <div className="mx-auto max-w-[1280px] space-y-5">
+      <div className="flex items-center gap-4 px-1">
+        <AuraOrb state={orbState} size={56} />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight lg:text-[32px]">Command Center</h1>
+          <p className="mt-0.5 text-[15px] text-ink lg:text-[16px]">From plan to verified results.</p>
+        </div>
+        <span className="hidden text-[13px] text-ink-mute lg:block">{orbLabel[orbState]}</span>
+      </div>
+      <p className="sr-only" aria-live="polite">
+        {RUN_STATUS_LABEL[run.status]}. {verified} of {run.steps.length} steps verified.
+      </p>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="min-w-0 space-y-4">
+        <div className="flex flex-wrap items-center gap-2 px-1 text-[12px] text-ink-mute lg:text-[13px]">
           <Badge tone={runTone(run.status)}>{RUN_STATUS_LABEL[run.status]}</Badge>
           <span>
             {verified}/{run.steps.length} verified
@@ -124,7 +147,7 @@ export default function CommandCenter() {
         )}
 
         {run.status === 'AWAITING_APPROVAL' && (
-          <div className="rounded-[18px] bg-[#dcebf5]/80 p-4 text-[14px] text-ink-soft">
+          <div className="animate-rise rounded-[18px] bg-[#dcebf5]/80 p-4 text-[14px] text-ink-soft">
             Plan preview. Nothing has run yet. Review the steps, then approve. Sensitive steps will still ask you
             individually.
           </div>
@@ -140,7 +163,7 @@ export default function CommandCenter() {
                 onClick={() => act('cancel', () => api.cancel(run.id))}
                 aria-label={run.status === 'AWAITING_APPROVAL' ? 'Cancel plan' : 'Stop'}
                 title={run.status === 'AWAITING_APPROVAL' ? 'Cancel plan' : 'Stop the workflow'}
-                className="grid size-8 place-items-center rounded-full bg-white/80 text-ink-soft shadow-[0_1px_4px_rgba(23,52,61,0.12)] hover:text-ink disabled:opacity-50"
+                className="pressable grid size-8 place-items-center rounded-full bg-white/80 text-ink-soft shadow-[0_1px_4px_rgba(23,52,61,0.12)] hover:text-ink disabled:opacity-50"
               >
                 <Square className="size-3.5" />
               </button>
@@ -150,7 +173,7 @@ export default function CommandCenter() {
 
         <RunReport run={run} />
 
-        <div className="xl:hidden">
+        <div className="lg:hidden">
           <Segmented
             label="Command Center view"
             value={panel}
@@ -162,7 +185,7 @@ export default function CommandCenter() {
           />
         </div>
 
-        <ol className={cx('space-y-3', panel === 'log' && 'hidden xl:block')} aria-label="Steps">
+        <ol className={cx('space-y-3', panel === 'log' && 'hidden lg:block')} aria-label="Steps">
           {ordered.map((s) => (
             <StepCard
               key={s.id}
@@ -175,7 +198,7 @@ export default function CommandCenter() {
           ))}
         </ol>
 
-        <p className="flex items-start gap-2 px-1 text-[12px] leading-relaxed text-ink-mute" title={run.planner_detail}>
+        <p className="flex items-start gap-2 px-1 text-[12px] leading-relaxed text-ink-mute lg:text-[13px]" title={run.planner_detail}>
           <Info className="mt-px size-3.5 shrink-0" aria-hidden />
           <span>
             Plan by {run.planner_detail}. Risk levels come from AURA's policy, not the planner. A step is
@@ -185,8 +208,9 @@ export default function CommandCenter() {
         </p>
       </div>
 
-      <div className={cx('xl:sticky xl:top-20 xl:self-start xl:pt-[84px]', panel === 'steps' && 'hidden xl:block')}>
-        <ToolLog events={events} steps={run.steps} />
+      <div className={cx('lg:sticky lg:top-6 lg:self-start', panel === 'steps' && 'hidden lg:block')}>
+        <ToolLog events={events} steps={run.steps} className="lg:max-h-[calc(100vh-120px)]" />
+      </div>
       </div>
     </div>
   )

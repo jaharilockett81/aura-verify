@@ -80,11 +80,11 @@ export function DeviceGrid({ all }: { all: boolean }) {
         const faulty = !!faults[d.device_id]
         const name = d.device_id === 'front_door' ? 'Front door' : d.name
         return (
-          <li key={d.device_id} className="card flex min-h-[64px] items-center gap-2.5 rounded-[18px] px-3 py-2.5">
+          <li key={d.device_id} className="card flex min-h-[64px] animate-rise items-center gap-2.5 rounded-[18px] px-3 py-2.5 transition-shadow duration-200 hover:shadow-[0_12px_30px_-16px_rgba(23,52,61,0.35)] lg:min-h-[76px] lg:gap-3 lg:px-4">
             <Glyph kind={d.reachable ? kindForDevice(d.device_id, d.type, d.state?.locked) : 'offline'} size={38} />
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium leading-tight">{name}</span>
-              <span className={cx('mt-1 block text-[12px] leading-tight', d.reachable ? 'text-ink-soft' : 'text-unknown')}>
+              <span className="block text-[13px] font-medium leading-tight lg:text-[16px]">{name}</span>
+              <span className={cx('mt-1 block text-[12px] leading-tight transition-colors lg:text-[14px]', d.reachable ? 'text-ink-soft' : 'text-unknown')}>
                 {deviceSummary(d)}
               </span>
               {faulty && <Badge tone="recover" className="mt-1">sim fault</Badge>}
