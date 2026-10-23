@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Download, Pencil, Play, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
+import { Bell, ChevronRight, Download, Pencil, Play, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
 import { Badge, Button, Empty, ErrorNote, SectionTitle } from '../components/ui'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
@@ -52,11 +52,11 @@ function PrefRow({ pref, onSaved }: { pref: Preference; onSaved: () => void }) {
   }
 
   return (
-    <li className="py-3">
+    <li className="px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold">{pref.label}</div>
-          <div className="text-[11px] text-ink-mute">
+          <div className="text-[15px]">{pref.label}</div>
+          <div className="truncate text-[12px] text-ink-mute">
             Updated {timeAgo(pref.updated_at)} · by {pref.source} · <span className="font-mono">{pref.key}</span>
           </div>
         </div>
@@ -75,7 +75,7 @@ function PrefRow({ pref, onSaved }: { pref: Preference; onSaved: () => void }) {
               type={numeric ? 'number' : pref.unit === 'time' ? 'time' : 'text'}
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              className="w-32 rounded-lg bg-night-950/70 px-3 py-1.5 text-sm ring-1 ring-white/15 focus:outline-none focus:ring-lav-400/50"
+              className="h-8 w-32 rounded-[10px] bg-white/[0.08] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-lav-300/50"
             />
             <Button size="sm" variant="primary" type="submit" busy={busy}>Save</Button>
             <Button size="sm" variant="ghost" type="button" onClick={() => { setEditing(false); setValue(String(pref.value)); setError(null) }}>
@@ -83,10 +83,10 @@ function PrefRow({ pref, onSaved }: { pref: Preference; onSaved: () => void }) {
             </Button>
           </form>
         ) : (
-          <div className="flex items-center gap-1">
-            <span className="mr-2 font-display text-2xl text-lav-200">
+          <div className="flex items-center gap-0.5">
+            <span className="mr-2 text-[17px] tabular-nums text-ink-soft">
               {String(pref.value)}
-              {unit && <span className="text-base text-ink-mute">{unit}</span>}
+              {unit && <span className="text-ink-mute">{unit}</span>}
             </span>
             <Button size="sm" variant="ghost" onClick={() => setEditing(true)} aria-label={`Edit ${pref.label}`}>
               <Pencil className="size-3.5" />
@@ -112,7 +112,7 @@ function RoutineCard({ routine, prefs }: { routine: Routine; prefs: Preference[]
       const m = part.match(/^\{pref:([a-z_]+)\}$/)
       if (!m) return <span key={i}>{part}</span>
       return (
-        <span key={i} className="rounded bg-lav-400/15 px-1 font-semibold text-lav-200" title={`From memory: ${m[1]}`}>
+        <span key={i} className="rounded-md bg-lav-300/12 px-1.5 py-px font-medium text-lav-300" title={`From memory: ${m[1]}`}>
           {String(byKey[m[1]]?.value ?? m[1])}
         </span>
       )
@@ -133,25 +133,25 @@ function RoutineCard({ routine, prefs }: { routine: Routine; prefs: Preference[]
   }
 
   return (
-    <div className="card p-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className="card overflow-hidden">
+      <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4">
         <div>
-          <div className="font-bold">{routine.name}</div>
-          <p className="text-xs text-ink-mute">{routine.description}</p>
+          <div className="text-[17px] font-semibold tracking-tight">{routine.name}</div>
+          <p className="text-[13px] text-ink-mute">{routine.description}</p>
         </div>
         <Button size="sm" onClick={run} busy={busy}>
           <Play className="size-3.5" /> Plan it
         </Button>
       </div>
-      <ol className="mt-3 space-y-1 text-sm text-ink-soft">
+      <ol className="group-list border-t border-white/[0.08] text-[15px] text-ink-soft">
         {routine.steps.map((s, i) => (
-          <li key={i} className="flex gap-2">
-            <span className="w-4 shrink-0 text-right text-xs text-ink-mute">{i + 1}.</span>
+          <li key={i} className="flex items-center gap-3 px-4 py-2.5">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white/[0.08] text-[12px] font-medium text-ink-mute">{i + 1}</span>
             <span>{render(s.title)}</span>
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-[11px] text-ink-mute">
+      <p className="border-t border-white/[0.08] px-4 py-3 text-[12px] leading-relaxed text-ink-mute">
         Triggers: {routine.triggers.map((t) => `“${t}”`).join(', ')}. Highlighted values are filled from your
         preferences each time the routine is planned.
       </p>
@@ -206,24 +206,24 @@ export default function Memory() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-mute">Memory & preferences</p>
-        <h1 className="font-display text-4xl">What AURA remembers about your home.</h1>
-        <p className="mt-1 max-w-2xl text-ink-soft">
+    <div className="mx-auto max-w-5xl space-y-8">
+      <div className="px-1">
+        <h1 className="text-[34px] font-bold leading-tight tracking-tight">Memory</h1>
+        <p className="mt-1 text-[17px] text-ink-soft">What AURA remembers about your home.</p>
+        <p className="mt-1 max-w-2xl text-[13px] text-ink-mute">
           Structured memory, not chat history. Edit anything here; routines pick up changes the next time they're
           planned, in any session.
         </p>
       </div>
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="card p-5" aria-labelledby="prefs-title">
-          <SectionTitle id="prefs-title">Preferences</SectionTitle>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <section className="space-y-6" aria-labelledby="prefs-title">
+          <h2 id="prefs-title" className="sr-only">Preferences</h2>
           {categories.map((c) => (
-            <div key={c} className="mb-2">
-              <div className="mt-2 text-xs font-bold text-lav-300">{c}</div>
-              <ul className="divide-y divide-white/6">
+            <div key={c}>
+              <SectionTitle>{c}</SectionTitle>
+              <ul className="card group-list overflow-hidden">
                 {prefs.filter((p) => p.category === c).map((p) => (
                   <PrefRow key={p.key} pref={p} onSaved={load} />
                 ))}
@@ -232,30 +232,32 @@ export default function Memory() {
           ))}
         </section>
 
-        <div className="space-y-6">
+        <div className="space-y-8">
           <section aria-labelledby="routines-title">
             <SectionTitle id="routines-title">Routines</SectionTitle>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {routines.map((r) => (
                 <RoutineCard key={r.id} routine={r} prefs={prefs} />
               ))}
             </div>
           </section>
 
-          <section className="card p-5" aria-labelledby="rem-title">
-            <SectionTitle id="rem-title" action={<Badge tone="mute">simulated delivery</Badge>}>
+          <section aria-labelledby="rem-title">
+            <SectionTitle id="rem-title" action={<Badge tone="mute">Simulated delivery</Badge>}>
               Reminders
             </SectionTitle>
             {reminders.length === 0 ? (
               <Empty>No reminders yet.</Empty>
             ) : (
-              <ul className="divide-y divide-white/6">
+              <ul className="card group-list overflow-hidden">
                 {reminders.map((r) => (
-                  <li key={r.reminder_id} className="flex items-center gap-3 py-2.5">
-                    <Bell className="size-4 text-lav-300" aria-hidden />
+                  <li key={r.reminder_id} className="flex items-center gap-3 px-4 py-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-[10px] bg-failed/80 text-white">
+                      <Bell className="size-4" aria-hidden />
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold">{r.title}{r.due && <span className="font-normal text-ink-mute"> · {r.due}</span>}</div>
-                      <div className="truncate text-[11px] text-ink-mute">{r.note}</div>
+                      <div className="text-[15px]">{r.title}{r.due && <span className="text-ink-mute"> · {r.due}</span>}</div>
+                      <div className="truncate text-[12px] text-ink-mute">{r.note}</div>
                     </div>
                     <Button size="sm" variant="ghost" onClick={() => removeReminder(r.reminder_id)} aria-label={`Delete reminder ${r.title}`}>
                       <Trash2 className="size-3.5" />
@@ -265,41 +267,44 @@ export default function Memory() {
               </ul>
             )}
           </section>
+
+          <section aria-labelledby="privacy-title">
+            <SectionTitle id="privacy-title">Privacy</SectionTitle>
+            <div className="card group-list overflow-hidden">
+              <div className="flex items-start gap-3 px-4 py-3.5">
+                <span className="grid size-8 shrink-0 place-items-center rounded-[10px] bg-verified/80 text-night-950">
+                  <ShieldCheck className="size-4" aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1 text-[15px]">
+                  Stored locally
+                  <p className="mt-0.5 text-[12px] leading-relaxed text-ink-mute">
+                    Memory and history live in a SQLite file on the machine running AURA. When Amazon Bedrock planning
+                    is enabled, your request text plus the device list, routine names and preferences needed to plan
+                    are sent to Bedrock in your AWS account. In local mode nothing leaves this machine.
+                  </p>
+                </div>
+              </div>
+              <a href="/api/memory/export" download className="flex items-center gap-3 px-4 py-3 text-[15px] text-lav-300 hover:bg-white/[0.04]">
+                <Download className="size-4" /> Export my data
+                <ChevronRight className="ml-auto size-4 text-ink-mute/70" />
+              </a>
+              {!confirmForget ? (
+                <button onClick={() => setConfirmForget(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-failed hover:bg-white/[0.04]">
+                  <Trash2 className="size-4" /> Forget everything
+                </button>
+              ) : (
+                <div className="space-y-3 bg-failed/[0.06] px-4 py-3.5" role="alertdialog" aria-label="Confirm forget">
+                  <p className="text-[13px] text-failed">Delete preferences, routines, reminders and history?</p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="danger" onClick={forget} busy={busy}>Yes, delete</Button>
+                    <Button size="sm" variant="secondary" onClick={() => setConfirmForget(false)}>Keep</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </div>
-
-      <section className="card p-5" aria-labelledby="privacy-title">
-        <SectionTitle id="privacy-title">Privacy controls</SectionTitle>
-        <div className="flex flex-wrap items-start gap-6">
-          <div className="min-w-0 flex-1 space-y-1 text-sm text-ink-soft">
-            <p className="flex items-start gap-2">
-              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-verified" aria-hidden />
-              Memory and history are stored locally in a SQLite file on the machine running AURA.
-            </p>
-            <p className="pl-6 text-xs text-ink-mute">
-              When Amazon Bedrock planning is enabled, your request text plus the device list, routine names and
-              preferences needed to plan are sent to Bedrock in your AWS account. In local mode nothing leaves this
-              machine.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <a href="/api/memory/export" download className="inline-flex items-center gap-2 rounded-xl bg-white/6 px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-white/10 hover:bg-white/10">
-              <Download className="size-4" /> Export my data
-            </a>
-            {!confirmForget ? (
-              <Button variant="danger" onClick={() => setConfirmForget(true)}>
-                <Trash2 className="size-4" /> Forget everything
-              </Button>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl bg-failed/10 p-2 ring-1 ring-failed/30" role="alertdialog" aria-label="Confirm forget">
-                <span className="px-1 text-xs text-failed">Delete preferences, routines, reminders and history?</span>
-                <Button size="sm" variant="danger" onClick={forget} busy={busy}>Yes, delete</Button>
-                <Button size="sm" variant="ghost" onClick={() => setConfirmForget(false)}>Keep</Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
     </div>
   )
 }

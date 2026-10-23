@@ -2,36 +2,25 @@ import { cx } from './ui'
 
 export type OrbState = 'idle' | 'listening' | 'thinking' | 'working' | 'attention'
 
-/** AURA's presence indicator, a calm cousin of the Echo light ring. Colour encodes state, not decoration. */
+/** AURA's presence indicator: a softly lit sphere. Colour encodes state, not decoration. */
 export function Orb({ state, size = 56 }: { state: OrbState; size?: number }) {
-  const ring =
+  const tint =
     state === 'attention'
-      ? 'from-recover via-recover-deep to-recover'
+      ? 'rgba(242,188,87,0.9)'
       : state === 'listening'
-        ? 'from-verified via-lav-300 to-verified'
-        : 'from-lav-300 via-verified to-lav-500'
+        ? 'rgba(70,209,194,0.9)'
+        : 'rgba(124,201,255,0.85)'
   return (
     <div
-      className="relative shrink-0"
-      style={{ width: size, height: size }}
+      className={cx('relative shrink-0 rounded-full', state === 'idle' ? 'animate-breathe' : (state === 'listening' || state === 'thinking') && 'animate-pulse')}
+      style={{
+        width: size,
+        height: size,
+        background: `radial-gradient(circle at 32% 28%, rgba(255,255,255,0.85), ${tint} 22%, rgba(142,162,255,0.55) 58%, rgba(17,24,39,0.9) 100%)`,
+        boxShadow: '0 10px 30px -12px rgba(0,0,0,0.7), inset 0 -6px 14px rgba(11,16,32,0.55)',
+      }}
       role="img"
       aria-label={`AURA is ${state === 'idle' ? 'ready' : state}`}
-    >
-      <div
-        className={cx(
-          'absolute inset-0 rounded-full bg-gradient-to-tr opacity-90 blur-[1px]',
-          ring,
-          state === 'idle' ? 'animate-breathe' : 'animate-spin-slow',
-        )}
-      />
-      <div className="absolute inset-[3px] rounded-full bg-night-900" />
-      <div
-        className={cx(
-          'absolute inset-[22%] rounded-full bg-gradient-to-br transition-all',
-          state === 'attention' ? 'from-recover/70 to-recover-deep/40' : 'from-lav-300/60 to-verified/30',
-          (state === 'listening' || state === 'thinking') && 'animate-pulse',
-        )}
-      />
-    </div>
+    />
   )
 }

@@ -96,10 +96,10 @@ export function stepTone(s: StepStatus): Tone {
 }
 
 export const TONE_CLASSES: Record<Tone, string> = {
-  verified: 'text-verified bg-verified/10 ring-verified/30',
-  recover: 'text-recover bg-recover/10 ring-recover/30',
-  failed: 'text-failed bg-failed/10 ring-failed/30',
-  unknown: 'text-unknown bg-unknown/10 ring-unknown/30',
-  lav: 'text-lav-300 bg-lav-400/10 ring-lav-400/30',
-  mute: 'text-ink-mute bg-white/5 ring-white/10',
+  verified: 'text-verified bg-verified/12 ring-transparent',
+  recover: 'text-recover bg-recover/12 ring-transparent',
+  failed: 'text-failed bg-failed/12 ring-transparent',
+  unknown: 'text-unknown bg-unknown/12 ring-transparent',
+  lav: 'text-lav-300 bg-lav-300/12 ring-transparent',
+  mute: 'text-ink-soft bg-white/[0.07] ring-transparent',
 }

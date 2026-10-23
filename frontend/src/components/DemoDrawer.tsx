@@ -61,69 +61,78 @@ export function DemoDrawer() {
   return (
     <div className={cx('fixed inset-0 z-40', demoOpen ? 'pointer-events-auto' : 'pointer-events-none')} aria-hidden={!demoOpen}>
       <div
-        className={cx('absolute inset-0 bg-night-950/60 backdrop-blur-sm transition-opacity', demoOpen ? 'opacity-100' : 'opacity-0')}
+        className={cx('absolute inset-0 bg-black/50 transition-opacity duration-300', demoOpen ? 'opacity-100' : 'opacity-0')}
         onClick={() => setDemoOpen(false)}
       />
+      {/* Bottom sheet on phones, centered modal sheet on larger screens */}
       <aside
         role="dialog"
         aria-modal="true"
         aria-labelledby="demo-title"
         className={cx(
-          'absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-recover/20 bg-night-850 shadow-2xl transition-transform duration-300',
-          demoOpen ? 'translate-x-0' : 'translate-x-full',
+          'absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col rounded-t-[28px] bg-night-850 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.8)] ring-1 ring-white/8 transition-all duration-300 ease-out',
+          'sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[82vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:rounded-[28px]',
+          demoOpen ? 'translate-y-0 opacity-100 sm:-translate-y-1/2' : 'translate-y-full sm:-translate-y-[46%] sm:opacity-0',
         )}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/8 p-5">
+        <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-white/20 sm:hidden" aria-hidden />
+        <div className="flex items-start justify-between gap-3 px-6 pb-4 pt-4 sm:pt-6">
           <div>
-            <h2 id="demo-title" className="flex items-center gap-2 text-lg font-bold text-recover">
-              <FlaskConical className="size-5" /> Demo controls
+            <h2 id="demo-title" className="flex items-center gap-2 text-[20px] font-semibold tracking-tight">
+              <span className="grid size-8 place-items-center rounded-[10px] bg-recover/15 text-recover">
+                <FlaskConical className="size-[18px]" strokeWidth={1.75} />
+              </span>
+              Demo controls
             </h2>
-            <p className="mt-1 text-sm text-ink-soft">
+            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
               Simulate real-world failures in the device simulator. These controls are not part of the assistant and
               AURA is not told about them: it has to discover problems through verification.
             </p>
           </div>
-          <button onClick={() => setDemoOpen(false)} className="rounded-lg p-1.5 text-ink-mute hover:bg-white/8 hover:text-ink" aria-label="Close demo controls">
-            <X className="size-5" />
+          <button onClick={() => setDemoOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.08] text-ink-soft hover:bg-white/[0.14] hover:text-ink" aria-label="Close demo controls">
+            <X className="size-4" />
           </button>
         </div>
 
-        <div className="scroll-thin flex-1 space-y-3 overflow-y-auto p-5">
-          {devices.map((d) => {
-            const active = faults[d.device_id] ?? {}
-            return (
-              <div key={d.device_id} className="card p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="font-semibold">{d.name}</div>
-                    <div className="text-xs text-ink-mute">{deviceSummary(d)}</div>
+        <div className="scroll-thin flex-1 overflow-y-auto px-4 pb-2">
+          <div className="px-2 pb-2 text-[13px] font-medium uppercase tracking-[0.06em] text-ink-mute">Simulated devices</div>
+          <ul className="card group-list overflow-hidden">
+            {devices.map((d) => {
+              const active = faults[d.device_id] ?? {}
+              return (
+                <li key={d.device_id} className="px-4 py-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[15px] font-medium">{d.name}</div>
+                      <div className="truncate text-[13px] text-ink-mute">{deviceSummary(d)}</div>
+                    </div>
+                    {Object.keys(active).length > 0 && <Badge tone="recover">Fault active</Badge>}
                   </div>
-                  {Object.keys(active).length > 0 && <Badge tone="recover">Fault active</Badge>}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {Object.keys(kinds)
-                    .filter((k) => applicable(d, k))
-                    .map((k) => (
-                      <Button
-                        key={k}
-                        size="sm"
-                        variant={active[k] ? 'warn' : 'secondary'}
-                        busy={busy === `${d.device_id}:${k}`}
-                        title={kinds[k]}
-                        onClick={() =>
-                          act(`${d.device_id}:${k}`, () => api.injectFault(d.device_id, k), `${FAULT_LABELS[k]} → ${d.name}`)
-                        }
-                      >
-                        {FAULT_LABELS[k] ?? k}
-                      </Button>
-                    ))}
-                </div>
-              </div>
-            )
-          })}
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {Object.keys(kinds)
+                      .filter((k) => applicable(d, k))
+                      .map((k) => (
+                        <Button
+                          key={k}
+                          size="sm"
+                          variant={active[k] ? 'warn' : 'secondary'}
+                          busy={busy === `${d.device_id}:${k}`}
+                          title={kinds[k]}
+                          onClick={() =>
+                            act(`${d.device_id}:${k}`, () => api.injectFault(d.device_id, k), `${FAULT_LABELS[k]} → ${d.name}`)
+                          }
+                        >
+                          {FAULT_LABELS[k] ?? k}
+                        </Button>
+                      ))}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 border-t border-white/8 p-5">
+        <div className="grid grid-cols-2 gap-2 px-6 pb-[max(env(safe-area-inset-bottom),24px)] pt-4">
           <Button busy={busy === 'clear'} onClick={() => act('clear', api.clearFaults, 'All faults cleared')}>
             <Wrench className="size-4" /> Clear all faults
           </Button>

@@ -1,41 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Instrument Serif", ui-serif, Georgia, serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
-  --color-night-950: #070a1a;
-  --color-night-900: #0b1026;
-  --color-night-850: #0f1530;
-  --color-night-800: #141b3b;
-  --color-night-700: #1c2550;
-  --color-night-600: #283366;
-  --color-night-500: #3a4680;
+  /* Surfaces. night-* kept as names so existing components inherit the new palette. */
+  --color-night-950: #080c19;
+  --color-night-900: #0b1020;
+  --color-night-850: #111827;
+  --color-night-800: #161d2d;
+  --color-night-700: #1e2638;
+  --color-night-600: #2a3346;
+  --color-night-500: #3b4558;
 
-  --color-ink: #e9e7fb;
-  --color-ink-soft: #b9b7d9;
-  --color-ink-mute: #8a89b0;
+  --color-ink: #f5f7fb;
+  --color-ink-soft: #b8c0d4;
+  --color-ink-mute: #8a93a8;
 
-  --color-lav-200: #ddd6fe;
-  --color-lav-300: #c4b5fd;
-  --color-lav-400: #a78bfa;
-  --color-lav-500: #8b5cf6;
+  /* Accent scale (formerly lavender): accent blue and soft indigo */
+  --color-lav-200: #c7e7ff;
+  --color-lav-300: #7cc9ff;
+  --color-lav-400: #8ea2ff;
+  --color-lav-500: #6f84f0;
 
-  --color-verified: #5eead4;
-  --color-verified-deep: #14b8a6;
-  --color-recover: #fbbf24;
-  --color-recover-deep: #d97706;
-  --color-failed: #fb7185;
-  --color-unknown: #94a3c8;
+  --color-verified: #46d1c2;
+  --color-verified-deep: #2bb3a5;
+  --color-recover: #f2bc57;
+  --color-recover-deep: #d49a2e;
+  --color-failed: #ff7a7a;
+  --color-unknown: #9aa3b8;
+
+  --color-card: rgba(255, 255, 255, 0.06);
+  --color-elevated: rgba(255, 255, 255, 0.09);
+  --color-hairline: rgba(255, 255, 255, 0.08);
+
+  --radius-card: 22px;
 
   --animate-breathe: breathe 4s ease-in-out infinite;
   --animate-spin-slow: spin 2.4s linear infinite;
   --animate-rise: rise 0.35s ease-out both;
 
   @keyframes breathe {
-    0%, 100% { transform: scale(1); opacity: 0.85; }
-    50% { transform: scale(1.06); opacity: 1; }
+    0%, 100% { transform: scale(1); opacity: 0.92; }
+    50% { transform: scale(1.03); opacity: 1; }
   }
   @keyframes rise {
     from { transform: translateY(6px); opacity: 0; }
@@ -58,34 +66,51 @@ html {
 body {
   margin: 0;
   background:
-    radial-gradient(900px 520px at 50% 38%, rgba(99, 102, 241, 0.16), transparent 65%),
-    radial-gradient(1100px 700px at 50% 120%, rgba(56, 189, 248, 0.08), transparent 60%),
-    radial-gradient(800px 500px at 90% -10%, rgba(139, 92, 246, 0.12), transparent 60%),
-    linear-gradient(180deg, #060918 0%, #0a0f28 45%, #0b1230 100%);
+    radial-gradient(1000px 520px at 50% -12%, rgba(142, 162, 255, 0.07), transparent 70%),
+    var(--color-night-900);
   background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: rgba(167, 139, 250, 0.35);
+  background: rgba(124, 201, 255, 0.3);
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-lav-300);
+  outline: 2px solid rgba(124, 201, 255, 0.7);
   outline-offset: 2px;
   border-radius: 8px;
 }
 
+@layer components {
+/* Grouped card: iOS-style material with a hairline edge and soft shadow */
 .card {
-  background: linear-gradient(180deg, rgba(28, 37, 80, 0.55), rgba(20, 27, 59, 0.55));
-  border: 1px solid rgba(196, 181, 253, 0.10);
-  border-radius: 1.25rem;
+  background: var(--color-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+}
+
+.material {
+  background: rgba(22, 29, 45, 0.72);
+  border: 1px solid var(--color-hairline);
+  backdrop-filter: saturate(160%) blur(24px);
+  -webkit-backdrop-filter: saturate(160%) blur(24px);
+}
+
+/* Inset grouped list rows (Settings-style), hairline separators inset past the icon */
+.group-list > * + * {
+  border-top: 1px solid var(--color-hairline);
+}
 }
 
 .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-.scroll-thin::-webkit-scrollbar-thumb { background: rgba(196, 181, 253, 0.18); border-radius: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 8px; }
 .scroll-thin::-webkit-scrollbar-track { background: transparent; }
 
 @media (prefers-reduced-motion: reduce) {

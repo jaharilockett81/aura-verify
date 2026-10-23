@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Info, ShieldCheck, Square, Volume2 } from 'lucide-react'
 import { Pipeline, RunReport, StepCard, ToolLog } from '../components/RunView'
-import { Badge, Button, Empty, ErrorNote } from '../components/ui'
+import { Badge, Button, Empty, ErrorNote, Segmented, cx } from '../components/ui'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
 import { RUN_STATUS_LABEL, clock, runTone } from '../lib/format'
@@ -18,6 +18,7 @@ export default function CommandCenter() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [noRuns, setNoRuns] = useState(false)
+  const [panel, setPanel] = useState<'steps' | 'log'>('steps')
   const refetch = useRef<number | null>(null)
 
   // /command without an id shows the most recent run.
@@ -85,9 +86,9 @@ export default function CommandCenter() {
       <header className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-mute">Workflow Command Center</p>
-            <h1 className="mt-1 font-display text-3xl leading-tight sm:text-4xl">“{run.utterance}”</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-mute">
+            <p className="text-[13px] font-medium text-ink-mute">Command Center</p>
+            <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-tight sm:text-[32px]">“{run.utterance}”</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-mute">
               <Badge tone={runTone(run.status)}>{RUN_STATUS_LABEL[run.status]}</Badge>
               <span>{run.summary}</span>
               <span>·</span>
@@ -117,7 +118,7 @@ export default function CommandCenter() {
           </div>
         </div>
         <Pipeline run={run} />
-        <p className="flex items-start gap-2 text-[11px] text-ink-mute" title={run.planner_detail}>
+        <p className="flex items-start gap-2 px-1 text-[12px] leading-relaxed text-ink-mute" title={run.planner_detail}>
           <Info className="mt-px size-3.5 shrink-0" aria-hidden />
           <span>
             Plan by {run.planner_detail}. Risk levels come from AURA's policy, not the planner. A step is
@@ -128,7 +129,7 @@ export default function CommandCenter() {
       </header>
 
       {run.status === 'AWAITING_APPROVAL' && (
-        <div className="rounded-2xl bg-lav-400/8 p-4 text-sm text-lav-200 ring-1 ring-lav-400/25">
+        <div className="rounded-[18px] bg-lav-300/[0.08] p-4 text-sm text-ink-soft">
           Plan preview. Nothing has run yet. Review the steps, then approve. Sensitive steps will still ask you
           individually.
         </div>
@@ -136,8 +137,20 @@ export default function CommandCenter() {
 
       <RunReport run={run} />
 
+      <div className="xl:hidden">
+        <Segmented
+          label="Command Center view"
+          value={panel}
+          onChange={setPanel}
+          options={[
+            { value: 'steps', label: `Steps · ${run.steps.length}` },
+            { value: 'log', label: `MCP log · ${events.filter((e) => e.type === 'tool.call').length}` },
+          ]}
+        />
+      </div>
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-        <ol className="space-y-3" aria-label="Steps">
+        <ol className={cx('space-y-3', panel === 'log' && 'hidden xl:block')} aria-label="Steps">
           {run.steps.map((s) => (
             <StepCard
               key={s.id}
@@ -148,7 +161,7 @@ export default function CommandCenter() {
             />
           ))}
         </ol>
-        <div className="xl:sticky xl:top-24 xl:self-start">
+        <div className={cx('xl:sticky xl:top-24 xl:self-start', panel === 'steps' && 'hidden xl:block')}>
           <ToolLog events={events} steps={run.steps} />
         </div>
       </div>

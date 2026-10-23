@@ -122,7 +122,7 @@ function PlanCard({ runId }: { runId: string }) {
   }
 
   return (
-    <div className="mt-3 animate-rise rounded-3xl bg-night-850/80 p-5 ring-1 ring-lav-400/15 backdrop-blur-xl">
+    <div className="card mt-3 animate-rise p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm font-bold">{run.summary}</div>
         <Badge tone={runTone(run.status)}>{RUN_STATUS_LABEL[run.status]}</Badge>
@@ -196,12 +196,12 @@ function Transcript({ messages, thinking }: { messages: Message[]; thinking: boo
               className={cx(
                 'rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed',
                 m.role === 'user'
-                  ? 'rounded-br-lg bg-white/8 text-ink ring-1 ring-white/10'
+                  ? 'rounded-br-md bg-lav-300 text-night-950'
                   : m.meta?.recovery
-                    ? 'rounded-bl-lg bg-recover/10 text-ink ring-1 ring-recover/30'
+                    ? 'rounded-bl-md bg-recover/12 text-ink'
                     : m.meta?.final && m.meta?.status === 'COMPLETED'
-                      ? 'rounded-bl-lg bg-verified/8 text-ink ring-1 ring-verified/25'
-                      : 'rounded-bl-lg text-ink-soft',
+                      ? 'rounded-bl-md bg-verified/10 text-ink'
+                      : 'rounded-bl-md bg-white/[0.07] text-ink',
               )}
             >
               {m.text}
@@ -213,7 +213,7 @@ function Transcript({ messages, thinking }: { messages: Message[]; thinking: boo
       {thinking && (
         <div className="flex gap-1.5 px-4 py-2" aria-label="AURA is thinking">
           {[0, 1, 2].map((i) => (
-            <span key={i} className="size-1.5 animate-bounce rounded-full bg-lav-300/70" style={{ animationDelay: `${i * 120}ms` }} />
+            <span key={i} className="size-1.5 animate-bounce rounded-full bg-ink-mute" style={{ animationDelay: `${i * 120}ms` }} />
           ))}
         </div>
       )}
@@ -266,11 +266,11 @@ export function CenteredAssistant({
     >
       <div className={cx('flex flex-col items-center text-center transition-all', empty ? 'gap-6' : 'gap-3')}>
         <Orb state={orbState} size={empty ? 64 : 40} />
-        <h1 className={cx('font-display leading-tight tracking-tight text-ink', empty ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl')}>
+        <h1 className={cx('font-display font-normal leading-[1.08] tracking-[-0.01em] text-ink', empty ? 'text-[44px] sm:text-[56px]' : 'text-[28px] sm:text-[32px]')}>
           {greeting}
         </h1>
         {empty && (
-          <p className="max-w-md text-sm text-ink-mute">
+          <p className="max-w-md text-[15px] leading-relaxed text-ink-mute">
             Every action is checked against the device&apos;s actual state. You approve plans before anything runs.
           </p>
         )}
@@ -286,9 +286,9 @@ export function CenteredAssistant({
         {(error || voice.error) && <div className="mb-3"><ErrorNote>{voice.error ?? error}</ErrorNote></div>}
         <div
           className={cx(
-            'flex items-center gap-1.5 rounded-full bg-night-850/90 p-1.5 pl-2 ring-1 backdrop-blur-xl transition-all',
-            'shadow-[0_0_0_1px_rgba(196,181,253,0.06),0_18px_60px_-20px_rgba(99,102,241,0.55),0_0_40px_-12px_rgba(139,92,246,0.45)]',
-            voice.listening ? 'ring-verified/50' : 'ring-lav-400/25 focus-within:ring-lav-300/60',
+            'material flex h-16 items-center gap-2 rounded-full p-2 pl-2.5 transition-all',
+            'shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_20px_40px_-20px_rgba(0,0,0,0.75)]',
+            voice.listening ? 'ring-2 ring-verified/40' : 'focus-within:border-white/20',
           )}
         >
           <button
@@ -296,8 +296,8 @@ export function CenteredAssistant({
             onClick={voice.listening ? voice.stop : voice.start}
             disabled={!voice.supported || thinking}
             className={cx(
-              'grid size-10 shrink-0 place-items-center rounded-full transition',
-              voice.listening ? 'bg-verified/20 text-verified' : 'text-lav-300 hover:bg-white/8 hover:text-lav-200',
+              'grid size-11 shrink-0 place-items-center rounded-full transition',
+              voice.listening ? 'bg-verified/20 text-verified' : 'bg-white/[0.07] text-ink-soft hover:bg-white/[0.12] hover:text-ink',
               !voice.supported && 'cursor-not-allowed opacity-40',
             )}
             aria-label={voice.listening ? 'Stop listening' : 'Speak a request'}
@@ -315,12 +315,12 @@ export function CenteredAssistant({
             placeholder={voice.listening ? voice.interim || 'Listening…' : 'Ask AURA'}
             maxLength={500}
             autoComplete="off"
-            className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-[15px] text-ink placeholder:text-ink-mute focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-[17px] text-ink placeholder:text-ink-mute focus:outline-none"
           />
           <button
             type="submit"
             disabled={!text.trim() || thinking}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-lav-300 text-night-950 transition hover:bg-lav-200 disabled:bg-white/8 disabled:text-ink-mute"
+            className="grid size-11 shrink-0 place-items-center rounded-full bg-lav-300 text-night-950 transition hover:bg-lav-200 disabled:bg-white/[0.07] disabled:text-ink-mute"
             aria-label="Send"
           >
             <ArrowUp className="size-5" />
@@ -328,7 +328,7 @@ export function CenteredAssistant({
         </div>
       </form>
 
-      <div className="mt-4 flex w-full flex-wrap items-center justify-center gap-2" aria-label="Quick actions">
+      <div className="mt-5 flex w-full flex-wrap items-center justify-center gap-2" aria-label="Quick actions">
         {chips.map(({ label, icon: Icon, onClick, title, tone, busy }) => (
           <button
             key={label}
@@ -337,13 +337,13 @@ export function CenteredAssistant({
             disabled={busy || thinking}
             title={title}
             className={cx(
-              'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 transition disabled:opacity-50',
+              'inline-flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-medium transition active:scale-[0.97] disabled:opacity-50',
               tone === 'warn'
-                ? 'bg-recover/8 text-recover ring-recover/25 hover:bg-recover/15'
-                : 'bg-white/[0.04] text-ink-soft ring-white/10 hover:bg-white/8 hover:text-ink',
+                ? 'bg-recover/12 text-recover hover:bg-recover/18'
+                : 'bg-white/[0.07] text-ink-soft hover:bg-white/[0.11] hover:text-ink',
             )}
           >
-            <Icon className="size-3.5" aria-hidden />
+            <Icon className="size-4" strokeWidth={1.75} aria-hidden />
             {label}
           </button>
         ))}

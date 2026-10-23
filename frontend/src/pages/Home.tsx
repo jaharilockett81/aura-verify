@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BedDouble, DoorOpen, MoonStar, Thermometer, Zap } from 'lucide-react'
+import { BedDouble, ChevronRight, DoorOpen, MoonStar, Thermometer, Zap } from 'lucide-react'
 import { CenteredAssistant, useConversation } from '../components/Assistant'
 import type { Chip } from '../components/Assistant'
 import { DeviceStrip } from '../components/Devices'
@@ -65,7 +65,7 @@ export default function Home() {
       {greeting()}
       {name && (
         <>
-          , <span className="italic text-lav-300">{name}</span>
+          , <span className="italic">{name}</span>
         </>
       )}
       . <span className="block text-ink-soft">How can I help?</span>
@@ -76,54 +76,54 @@ export default function Home() {
     <div className="pb-6">
       <CenteredAssistant convo={convo} greeting={greetingText} chips={chips} />
 
-      <div className="mx-auto mt-16 grid w-full max-w-4xl grid-cols-1 gap-8 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <div className="mx-auto mt-16 grid w-full max-w-4xl grid-cols-1 gap-8 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <section aria-labelledby="home-title">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 id="home-title" className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-mute">
+          <div className="mb-2 flex items-baseline justify-between px-1">
+            <h2 id="home-title" className="text-[20px] font-semibold tracking-tight">
               Household status
             </h2>
-            <Badge tone="mute">simulated</Badge>
+            <Badge tone="mute">Simulated</Badge>
           </div>
           <DeviceStrip />
         </section>
 
         <section aria-labelledby="activity-title">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 id="activity-title" className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-mute">
+          <div className="mb-2 flex items-baseline justify-between px-1">
+            <h2 id="activity-title" className="text-[20px] font-semibold tracking-tight">
               Recent activity
             </h2>
-            <Link to="/history" className="text-xs font-semibold text-lav-300 hover:text-lav-200">
-              All history
+            <Link to="/history" className="text-[15px] text-lav-300 hover:text-lav-200">
+              See all
             </Link>
           </div>
           {issues.length > 0 && (
             <Link
               to={`/runs/${issues[0].run_id}`}
-              className="mb-2 block rounded-2xl bg-recover/8 px-3.5 py-2.5 text-xs ring-1 ring-recover/20 hover:bg-recover/12"
+              className="mb-3 flex items-center gap-3 rounded-[18px] bg-recover/10 px-4 py-3 text-[13px] hover:bg-recover/14"
             >
-              <span className="font-bold text-recover">
-                {issues.length} unresolved issue{issues.length > 1 ? 's' : ''}
+              <span className="size-2 shrink-0 rounded-full bg-recover" />
+              <span className="min-w-0 flex-1">
+                <span className="font-semibold text-recover">
+                  {issues.length} unresolved issue{issues.length > 1 ? 's' : ''}
+                </span>
+                <span className="text-ink-soft"> · {issues[0].title} ({issues[0].status.toLowerCase()})</span>
               </span>
-              <span className="text-ink-soft"> · {issues[0].title} ({issues[0].status.toLowerCase()})</span>
+              <ChevronRight className="size-4 shrink-0 text-ink-mute" />
             </Link>
           )}
           {recent.length === 0 ? (
-            <p className="rounded-2xl px-3.5 py-3 text-sm text-ink-mute ring-1 ring-white/6">
-              Nothing yet. Try a chip above.
-            </p>
+            <p className="card px-4 py-4 text-[15px] text-ink-mute">Nothing yet. Try one of the actions above.</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="card group-list overflow-hidden">
               {recent.map((r) => (
                 <li key={r.id}>
-                  <Link
-                    to={`/runs/${r.id}`}
-                    className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 transition hover:bg-white/[0.04]"
-                  >
+                  <Link to={`/runs/${r.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2.5 transition hover:bg-white/[0.04]">
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{r.summary}</span>
-                      <span className="block truncate text-xs text-ink-mute">{timeAgo(r.created_at)}</span>
+                      <span className="block truncate text-[15px] font-medium">{r.summary}</span>
+                      <span className="block truncate text-[13px] text-ink-mute">{timeAgo(r.created_at)}</span>
                     </span>
                     <Badge tone={runTone(r.status)}>{RUN_STATUS_LABEL[r.status]}</Badge>
+                    <ChevronRight className="size-4 shrink-0 text-ink-mute/70" />
                   </Link>
                 </li>
               ))}

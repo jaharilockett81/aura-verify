@@ -41,25 +41,31 @@ function stageStates(run: Run): StageState[] {
 export function Pipeline({ run }: { run: Run }) {
   const states = stageStates(run)
   return (
-    <ol className="flex flex-wrap items-center gap-x-1 gap-y-2" aria-label="Workflow stages">
+    <ol className="scroll-thin flex w-full gap-1 overflow-x-auto rounded-full bg-white/[0.05] p-1" aria-label="Workflow stages">
       {STAGES.map((stage, i) => {
         const st = states[i]
         return (
-          <li key={stage} className="flex items-center gap-1">
+          <li key={stage} className="min-w-[84px] flex-1">
             <span
               className={cx(
-                'rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ring-1 ring-inset transition-colors',
-                st === 'done' && 'bg-verified/10 text-verified ring-verified/25',
-                st === 'active' && 'animate-pulse bg-lav-400/15 text-lav-200 ring-lav-400/40',
-                st === 'attention' && 'bg-recover/12 text-recover ring-recover/40',
-                st === 'idle' && 'text-ink-mute ring-white/8',
-                st === 'skipped' && 'text-ink-mute/50 ring-white/5 line-through decoration-1',
+                'flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-[12px] font-medium transition-colors',
+                st === 'done' && 'text-ink',
+                st === 'active' && 'bg-white/[0.12] text-ink shadow-[0_1px_2px_rgba(0,0,0,0.3)]',
+                st === 'attention' && 'bg-recover/14 text-recover',
+                st === 'idle' && 'text-ink-mute',
+                st === 'skipped' && 'text-ink-mute/50 line-through decoration-1',
               )}
               aria-current={st === 'active' || st === 'attention' ? 'step' : undefined}
             >
+              <span
+                className={cx(
+                  'size-1.5 shrink-0 rounded-full',
+                  st === 'done' ? 'bg-verified' : st === 'active' ? 'animate-pulse bg-lav-300' : st === 'attention' ? 'bg-recover' : 'bg-white/20',
+                )}
+                aria-hidden
+              />
               {stage}
             </span>
-            {i < STAGES.length - 1 && <span className="text-ink-mute/40" aria-hidden>›</span>}
           </li>
         )
       })}
@@ -91,8 +97,8 @@ export function AssuranceLadder({ step }: { step: Step }) {
                 : 'bg-white/12 text-ink-mute'
         return (
           <div key={label} className="flex items-center gap-1">
-            <span className={cx('h-1 w-5 rounded-full sm:w-7', color.split(' ')[0])} />
-            <span className={cx('hidden text-[10px] font-semibold uppercase tracking-wide md:inline', reached ? color.split(' ')[1] : 'text-ink-mute/60')}>
+            <span className={cx('h-[3px] w-5 rounded-full sm:w-6', color.split(' ')[0])} />
+            <span className={cx('hidden text-[11px] font-medium md:inline', reached ? color.split(' ')[1] : 'text-ink-mute/60')}>
               {label}
             </span>
           </div>
@@ -121,11 +127,11 @@ function EvidenceItem({ ev }: { ev: Evidence }) {
   const hasData = ev.data && Object.keys(ev.data).length > 0
   return (
     <li className="relative pl-7">
-      <span className="absolute left-0 top-0.5 grid size-5 place-items-center rounded-full bg-night-900 ring-1 ring-white/10">
+      <span className="absolute left-0 top-0.5 grid size-5 place-items-center rounded-full bg-night-800 ring-1 ring-white/10">
         <Icon className={cx('size-3', mismatch ? 'text-failed' : meta.tone)} aria-hidden />
       </span>
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className={cx('text-[11px] font-bold uppercase tracking-wider', mismatch ? 'text-failed' : meta.tone)}>{meta.label}</span>
+        <span className={cx('text-[12px] font-semibold', mismatch ? 'text-failed' : meta.tone)}>{meta.label}</span>
         <span className="font-mono text-[10px] text-ink-mute">{ev.source} · {clock(ev.at)}</span>
       </div>
       <p className="text-sm text-ink-soft">{ev.summary}</p>
@@ -135,7 +141,7 @@ function EvidenceItem({ ev }: { ev: Evidence }) {
         </button>
       )}
       {open && (
-        <pre className="scroll-thin mt-1 max-h-56 overflow-auto rounded-lg bg-night-950/70 p-2.5 font-mono text-[11px] leading-relaxed text-ink-soft ring-1 ring-white/6">
+        <pre className="scroll-thin mt-1.5 max-h-56 overflow-auto rounded-xl bg-black/25 p-3 font-mono text-[11px] leading-relaxed text-ink-soft ring-1 ring-white/6">
           {JSON.stringify(ev.data, null, 2)}
         </pre>
       )}
@@ -150,10 +156,10 @@ function ExpectedObserved({ step }: { step: Step }) {
   const keys = Object.keys(step.expected)
   if (keys.length === 0) return null
   return (
-    <div className="grid grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 rounded-xl bg-night-950/50 p-3 text-xs ring-1 ring-white/6">
+    <div className="grid grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1.5 rounded-2xl bg-black/20 p-3.5 text-xs">
       <span />
-      <span className="font-bold uppercase tracking-wider text-ink-mute">Expected</span>
-      <span className="font-bold uppercase tracking-wider text-ink-mute">Observed (independent read)</span>
+      <span className="font-medium text-ink-mute">Expected</span>
+      <span className="font-medium text-ink-mute">Observed (independent read)</span>
       {keys.map((k) => {
         const exp = String(step.expected[k])
         const obs = observed[k] === undefined ? '—' : String(observed[k])
@@ -194,16 +200,16 @@ export function StepCard({
     <li
       className={cx(
         'card animate-rise overflow-hidden transition-all',
-        step.recovery_options.length > 0 && 'border-recover/40 shadow-[0_0_0_1px_rgba(251,191,36,0.15),0_20px_60px_-30px_rgba(251,191,36,0.5)]',
+        step.recovery_options.length > 0 && 'border-recover/35',
         step.status === 'AWAITING_APPROVAL' && 'border-recover/30',
-        (step.status === 'RUNNING' || step.status === 'VERIFYING') && 'border-lav-400/35',
+        (step.status === 'RUNNING' || step.status === 'VERIFYING') && 'border-lav-300/30',
       )}
     >
-      <button onClick={() => setOpen(!expanded)} className="flex w-full items-start gap-3 p-4 text-left" aria-expanded={expanded}>
+      <button onClick={() => setOpen(!expanded)} className="flex w-full items-start gap-3 p-4 text-left sm:p-5" aria-expanded={expanded}>
         <StatusIcon status={step.status} className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{step.title}</span>
+            <span className="text-[16px] font-semibold tracking-tight">{step.title}</span>
             <Badge tone={tone}>{STEP_STATUS_LABEL[step.status]}</Badge>
             {step.risk === 'SENSITIVE' && <Badge tone="recover"><ShieldAlert className="size-3" /> Sensitive</Badge>}
             {step.risk === 'READ_ONLY' && <Badge tone="mute">Read-only</Badge>}
@@ -218,8 +224,8 @@ export function StepCard({
       </button>
 
       {step.status === 'AWAITING_APPROVAL' && (
-        <div className="mx-4 mb-4 rounded-xl bg-recover/8 p-4 ring-1 ring-recover/25">
-          <div className="flex items-center gap-2 text-sm font-bold text-recover">
+        <div className="mx-4 mb-4 rounded-2xl bg-recover/[0.08] p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-recover">
             <Hand className="size-4" /> This step needs your confirmation
           </div>
           <p className="mt-1 text-sm text-ink-soft">{riskReason}</p>
@@ -235,8 +241,8 @@ export function StepCard({
       )}
 
       {step.recovery_options.length > 0 && (
-        <div className="mx-4 mb-4 rounded-xl bg-recover/8 p-4 ring-1 ring-recover/30" role="region" aria-label="Recovery options">
-          <div className="flex items-center gap-2 text-sm font-bold text-recover">
+        <div className="mx-4 mb-4 rounded-2xl bg-recover/[0.08] p-4" role="region" aria-label="Recovery options">
+          <div className="flex items-center gap-2 text-sm font-semibold text-recover">
             <Wrench className="size-4" /> {step.status === 'UNKNOWN' ? "Couldn't confirm this step" : 'Verification failed'}
           </div>
           <p className="mt-1 text-sm text-ink">{step.error}</p>
@@ -251,12 +257,12 @@ export function StepCard({
                 onClick={() => onRecover(o.id)}
                 disabled={!!busy}
                 className={cx(
-                  'flex items-start gap-3 rounded-xl p-3 text-left ring-1 transition disabled:opacity-50',
-                  o.recommended ? 'bg-recover/15 ring-recover/50 hover:bg-recover/25' : 'bg-white/4 ring-white/10 hover:bg-white/8',
+                  'flex items-start gap-3 rounded-[16px] p-3.5 text-left ring-1 ring-inset transition active:scale-[0.99] disabled:opacity-50',
+                  o.recommended ? 'bg-recover/14 ring-recover/35 hover:bg-recover/20' : 'bg-white/[0.05] ring-transparent hover:bg-white/[0.09]',
                 )}
               >
                 <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-2 text-sm font-bold">
+                  <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                     {o.label}
                     {o.recommended && <Badge tone="recover">Recommended</Badge>}
                     {o.risk === 'SENSITIVE' && <Badge tone="mute">Your approval</Badge>}
@@ -272,9 +278,9 @@ export function StepCard({
       )}
 
       {expanded && (
-        <div className="space-y-3 border-t border-white/6 px-4 pb-4 pt-3">
+        <div className="space-y-3 border-t border-white/[0.06] px-4 pb-4 pt-3.5 sm:px-5">
           {step.provenance && (
-            <p className="flex items-start gap-2 text-xs text-lav-300">
+            <p className="flex items-start gap-2 text-xs text-ink-soft">
               <Fingerprint className="mt-0.5 size-3.5 shrink-0" aria-hidden /> {step.provenance}
             </p>
           )}
@@ -307,9 +313,9 @@ export function ToolLog({ events, steps }: { events: AuraEvent[]; steps: Step[] 
   const transport = calls.at(-1)?.data.transport
   return (
     <section className="card flex max-h-[720px] flex-col overflow-hidden" aria-labelledby="toollog-title">
-      <div className="border-b border-white/6 p-4">
-        <h2 id="toollog-title" className="flex items-center gap-2 text-sm font-bold">
-          <ScrollText className="size-4 text-lav-300" /> MCP tool activity
+      <div className="border-b border-white/[0.06] p-4">
+        <h2 id="toollog-title" className="flex items-center gap-2 text-[15px] font-semibold">
+          <ScrollText className="size-4 text-ink-soft" /> MCP tool activity
         </h2>
         <p className="mt-0.5 text-[11px] text-ink-mute">
           Every household effect is a real MCP tools/call
@@ -327,7 +333,7 @@ export function ToolLog({ events, steps }: { events: AuraEvent[]; steps: Step[] 
             <li key={c.seq} className="animate-rise">
               <button
                 onClick={() => setOpenSeq(open ? null : c.seq)}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-white/4"
+                className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-left hover:bg-white/[0.05]"
                 aria-expanded={open}
               >
                 <span className={cx('size-1.5 shrink-0 rounded-full', !d.ok ? 'bg-failed' : verdict === 'MISMATCH' ? 'bg-failed' : verdict === 'UNKNOWN' ? 'bg-unknown' : d.tool === 'set_device_state' || d.tool === 'retry_failed_action' ? 'bg-lav-300' : 'bg-verified')} />
@@ -342,7 +348,7 @@ export function ToolLog({ events, steps }: { events: AuraEvent[]; steps: Step[] 
                 <span className="ml-auto font-mono text-[10px] text-ink-mute">{d.duration_ms}ms</span>
               </button>
               {open && (
-                <div className="mx-2 mb-2 space-y-1 rounded-lg bg-night-950/70 p-2.5 font-mono text-[11px] ring-1 ring-white/6">
+                <div className="mx-2 mb-2 space-y-1 rounded-xl bg-black/25 p-3 font-mono text-[11px]">
                   {d.step_id && <div className="text-ink-mute">for: {titles[d.step_id] ?? d.step_id}</div>}
                   <div className="text-lav-300">→ {JSON.stringify(d.arguments)}</div>
                   <pre className="scroll-thin max-h-48 overflow-auto whitespace-pre-wrap text-ink-soft">
@@ -362,10 +368,10 @@ export function RunReport({ run }: { run: Run }) {
   if (!run.final_report) return null
   const good = run.status === 'COMPLETED'
   return (
-    <div className={cx('card flex items-start gap-3 p-4', good ? 'border-verified/30' : 'border-recover/30')}>
+    <div className={cx('card flex items-start gap-3 p-4 sm:p-5', good ? 'border-verified/25' : 'border-recover/25')}>
       <BadgeCheck className={cx('mt-0.5 size-5 shrink-0', good ? 'text-verified' : 'text-recover')} aria-hidden />
       <div>
-        <div className={cx('text-sm font-bold', good ? 'text-verified' : 'text-recover')}>
+        <div className={cx('text-[15px] font-semibold', good ? 'text-verified' : 'text-recover')}>
           {good ? 'Everything verified' : run.status === 'CANCELLED' ? 'Cancelled' : 'Finished, with issues'}
         </div>
         <p className="text-sm text-ink-soft">{run.final_report}</p>
