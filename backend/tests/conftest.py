@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -26,12 +27,19 @@ def settings(tmp_path: Path, monkeypatch):
         verify_poll_s=0.1,
         tool_timeout_s=5.0,
         frontend_dist=tmp_path / "no-dist",
+        timezone="UTC",
     )
+
+
+# Reminder times are judged against the household clock. Pin it to 08:00 UTC tomorrow so "at 9 pm" is always
+# later today and "at 7:40 am" has always just passed, whatever time the suite runs (and still in the real future).
+PINNED_NOW = (datetime.now(UTC) + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
 
 
 @pytest.fixture
 def services(settings):
     svc = HouseholdServices(settings)
+    svc.clock = lambda: PINNED_NOW
     svc.seed()
     return svc
 

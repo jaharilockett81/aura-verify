@@ -11,7 +11,7 @@ import { AuraOrb, useOrbState } from './Orb'
 import type { OrbState } from './Orb'
 import { useLiveRun } from '../lib/useLiveRun'
 import { useMediaQuery } from '../lib/useMediaQuery'
-import { Badge, Button, ErrorNote, StatusIcon, cx } from './ui'
+import { Badge, Button, ErrorNote, ReminderWhen, StatusIcon, cx } from './ui'
 
 export function useConversation() {
   const { sessionId, ensureSession, newSession, toast } = useAura()
@@ -47,7 +47,7 @@ export function useConversation() {
   })
 
   const send = useCallback(
-    async (text: string): Promise<Message | null> => {
+    async (text: string, opts?: { source: 'voice'; transcript: string }): Promise<Message | null> => {
       const trimmed = text.trim()
       if (!trimmed) return null
       setError(null)
@@ -55,7 +55,7 @@ export function useConversation() {
       try {
         const sid = await ensureSession()
         sessionRef.current = sid
-        const res = await api.chat(sid, trimmed)
+        const res = await api.chat(sid, trimmed, opts)
         await load(res.session_id)
         return res.message
       } catch (e: any) {
@@ -143,6 +143,7 @@ function PlanCard({ runId }: { runId: string }) {
                 </Badge>
               )}
               {s.provenance && <div className="truncate text-[11px] text-lav-300/80">{s.provenance}</div>}
+              <ReminderWhen step={s} />
             </div>
           </li>
         ))}
@@ -287,7 +288,7 @@ export function CenteredAssistant({
   async function sendVoice(t: string) {
     setWakeBusy(true)
     try {
-      const reply = await send(normalizeWake(t))
+      const reply = await send(normalizeWake(t), { source: 'voice', transcript: t })
       if (reply?.meta?.listen || reply?.meta?.intent === 'clarify') {
         // "Yes, Jahari?" or a question back ("What should I remind you about?"): say it (the provider already does
         // when voice replies are on), then listen for the answer so a spoken conversation can carry on.

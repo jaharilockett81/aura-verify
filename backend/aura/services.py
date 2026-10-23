@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from .clock import iso, utcnow
+from .clock import household_tz, iso, utcnow
 from .config import Settings
 from .db import Database, now_iso
 from .ledger import Ledger
@@ -33,7 +33,9 @@ class HouseholdServices:
         self.settings = settings
         self.db = db or Database(settings.db_path)
         self.sim = SmartHomeSimulator(self.db, settle_ms=settings.sim_settle_ms)
-        self.memory = Memory(self.db, settings.timezone)
+        # The household clock the planner and reminder dates use (tests pin it so results don't depend on the hour).
+        self.clock = utcnow
+        self.memory = Memory(self.db, settings.timezone, clock=lambda: self.clock())
         self.timers = TimerStore(self.db)
         self.ledger = ledger or Ledger(self.db)
 
@@ -56,6 +58,9 @@ class HouseholdServices:
                        for t in self.timers.list(include_done=False)],
             "open_issues": self.open_issues(),
             "notice": SIMULATION_NOTICE,
+            # The planner needs the household's own clock to tell "7:40 AM" today from tomorrow.
+            "now_local": self.clock().astimezone(household_tz(self.settings.timezone)).isoformat(timespec="seconds"),
+            "timezone": self.settings.timezone or None,
         }
 
     def open_issues(self) -> list[dict[str, Any]]:
@@ -208,7 +213,7 @@ class HouseholdServices:
 
     def create_reminder(self, title: str, due: str | None, note: str | None, category: str,
                         idempotency_key: str, due_in_minutes: float | None = None,
-                        check: dict[str, Any] | None = None) -> dict[str, Any]:
+                        check: dict[str, Any] | None = None, due_date: str | None = None) -> dict[str, Any]:
         due_at = None
         if due_in_minutes is not None:
             if not 0 < float(due_in_minutes) <= 7 * 24 * 60:
@@ -221,7 +226,7 @@ class HouseholdServices:
                 raise ServiceError(f"Unknown device '{device_id}' in reminder check.")
         try:
             rem = self.memory.create_reminder(title, due, note, category or "general", idempotency_key,
-                                              due_at=due_at, check=check)
+                                              due_at=due_at, check=check, due_date=None if due_at else due_date)
         except MemoryError as exc:
             raise ServiceError(str(exc)) from exc
         return {**rem, "delivery_note": "Alerts are shown and spoken only by an open AURA browser tab. Nothing is "

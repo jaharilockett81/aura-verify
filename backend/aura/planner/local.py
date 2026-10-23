@@ -7,10 +7,14 @@ commands, preference changes and reminders, and ask for missing information inst
 
 from __future__ import annotations
 
+import logging
 import re
+from datetime import date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from ..models import PlanDraft, PlannedAction
+from .spoken_time import SpokenTime, find_time, mentions_a_time, normalise, say_hhmm
 
 PLANNER_LABEL = "Local rule-based planner (deterministic, no LLM)"
 
@@ -89,9 +93,32 @@ def _parse_time(text: str) -> str | None:
     return found[0] if found else None
 
 
-def _say_time(hhmm: str) -> str:
-    hour, minute = map(int, hhmm.split(":"))
-    return f"{hour % 12 or 12}:{minute:02d} {'AM' if hour < 12 else 'PM'}"
+speech_log = logging.getLogger("aura.speech")
+REMINDER_TRIGGER = re.compile(r"\b(?:remind me|(?:set|add|create|make) (?:a|me a|an?) reminder|"
+                              r"set (?:a|me a) reminder)\b(.*)$")
+YES = re.compile(r"^(?:yes|yeah|yep|yup|correct|right|sure|ok(?:ay)?|that's right|please do|do it|exactly)\b")
+NO = re.compile(r"^(?:no|nope|nah|not quite|wrong)\b")
+DAY_WORDS = re.compile(r"\b(?:(?:tomorrow|today|tonight)(?: (?:morning|afternoon|evening|night))?|"
+                       r"this (?:morning|afternoon|evening)|in the (?:morning|afternoon|evening)|at night)\b")
+
+
+def _clean_reminder_title(text: str) -> str:
+    t = DAY_WORDS.sub(" ", text)
+    t = re.sub(r"\s+", " ", t).strip(" ,.;:!?")
+    t = re.sub(r"^(?:to|that i (?:need to|should|have to)|about|for)\s+", "", t).strip()
+    t = re.sub(r"\s+(?:at|for|by|on|later)$", "", t).strip(" ,.;:")
+    return t
+
+
+def _household_now(context: dict[str, Any]) -> datetime:
+    if context.get("now_local"):
+        return datetime.fromisoformat(context["now_local"])
+    tz = context.get("timezone")
+    return datetime.now(ZoneInfo(tz)) if tz else datetime.now().astimezone()
+
+
+def _say_date(day: date | datetime) -> str:
+    return f"{day:%a}, {day:%b} {day.day}"
 
 
 def _explicit_temperatures(text: str) -> list[int]:
@@ -218,6 +245,8 @@ class LocalPlanner:
             if choice is None:
                 return None
             return self._timer_control(pending["op"], choice, context.get("timers", []))
+        if pending.get("slot") in ("reminder_meridiem", "reminder_confirm", "reminder_time"):
+            return self._fill_reminder(text, pending, context)
         if pending.get("slot") == "reminder_what":
             # The answer to "What should I remind you about?", plus any time given with the first request.
             answer = re.sub(r"^(?:remind me|to)\s+", "", text).strip()
@@ -321,42 +350,114 @@ class LocalPlanner:
 
     # ----- reminders -----------------------------------------------------------------------------
     def _reminder(self, text: str, context: dict[str, Any], prefs: dict[str, Any]) -> PlanDraft | None:
-        m = re.search(r"\b(?:remind me|set (?:a|me a) reminder|add a reminder|create a reminder)\b(.*)$", text)
+        m = REMINDER_TRIGGER.search(text)
         if not m:
             return None
-        rest = m.group(1).strip()
+        return self._reminder_request(m.group(1).strip(), context, prefs)
+
+    def _reminder_request(self, rest: str, context: dict[str, Any], prefs: dict[str, Any]) -> PlanDraft:
+        """Split "to take the dog out at 7 40 a.m." into a title and a time, then decide what to ask or plan."""
         due_in = None
         if rel := re.search(r"\bin\s+((?:\d+(?:\.\d+)?|a|an|one|two|three|four|five|ten|fifteen|twenty|thirty|"
                             r"half an?)\s*-?\s*(?:hours?|hrs?|minutes?|mins?|seconds?|secs?|hour))\b", rest):
             secs = _duration_s(rel.group(1))
             due_in = round(secs / 60, 2) if secs else None
             rest = (rest[:rel.start()] + rest[rel.end():]).strip()
-        due = None
-        if found := _time_match(rest):
-            due, tm = found
-            rest = (rest[:tm.start()] + " " + rest[tm.end():]).strip()
-            rest = re.sub(r"\s{2,}", " ", rest)
-        rest = re.sub(r"^(?:to|that i (?:need to|should|have to)|about|for)\s+", "", rest).strip(" ,.")
-        rest = re.sub(r"\s+(?:tonight|today|later)$", "", rest).strip()
-        if not rest:
+        spoken = find_time(rest) if due_in is None else None
+        norm = spoken.text if spoken else normalise(rest)
+        title_text = (norm[:spoken.start] + " " + norm[spoken.end:]) if spoken else norm
+        unreadable = spoken is None and due_in is None and mentions_a_time(title_text)
+        time_phrase = norm[spoken.start:spoken.end] if spoken else ""
+        if unreadable:  # keep "at 19 pm" out of the title while we ask for the time
+            title_text = re.sub(r"\b(?:(?:at|for|by)\s+)?\d[\d:.]*\s*(?:am|pm|o'clock)?(?=\W|$)", " ", title_text)
+        title_text = _clean_reminder_title(title_text)
+        speech_log.info("reminder parse: normalised=%r time=%s title=%r", norm, (
+            f"{spoken.text[spoken.start:spoken.end]!r} -> {spoken.hhmm() or f'{spoken.hour}:{spoken.minute:02d} (AM/PM?)'}"
+            f"{' ' + spoken.day if spoken.day else ''}{' (guessed)' if spoken.guessed else ''}" if spoken else
+            f"in {due_in} min" if due_in else "unreadable" if unreadable else "none"), title_text)
+        when_said = (f"in {_say_minutes(due_in)}" if due_in else
+                     time_phrase + (f" {spoken.day}" if spoken and spoken.day and spoken.day not in time_phrase else ""))
+        if not title_text:
             return self._draft(intent="clarify", summary="Reminder: what for?", spoken="What should I remind you about?",
                                question="What should I remind you about?",
-                               pending={"slot": "reminder_what", "when": m.group(1).strip()})
-        title = self._cased(rest)
-        title = title[0].upper() + title[1:]
+                               pending={"slot": "reminder_what", "when": when_said})
+        said = self._cased(title_text)
+        title = said[0].upper() + said[1:]
         check = None
-        device_draft = self._device(rest, context, prefs)
+        device_draft = self._device(title_text, context, prefs)
         if device_draft is not None and len(device_draft.actions) == 1 and device_draft.actions[0].action == "set_device":
             act = device_draft.actions[0]
             check = {"device_id": act.device_id, "expected": act.attributes}
-        when = f" in {_say_minutes(due_in)}" if due_in else (f" at {_say_time(due)}" if due else "")
-        rest = self._cased(rest)
+        rem = {"title": title[:80], "said": said, "check": check}
+        if unreadable:
+            return self._ask_reminder_time(rem, f"I couldn't make out the time in “{rest.strip(' .')}”. ")
+        if due_in:
+            return self._reminder_draft(rem, None, None, due_in)
+        if spoken is None:
+            return self._reminder_draft(rem, None, None, None)
+        return self._reminder_at(rem, spoken, context)
+
+    def _reminder_at(self, rem: dict[str, Any], spoken: SpokenTime, context: dict[str, Any],
+                     meridiem: str | None = None) -> PlanDraft:
+        """A reminder with a clock time: ask about anything not actually said, otherwise plan it."""
+        if spoken.meridiem and spoken.hour > 12:  # "19 pm"
+            return self._ask_reminder_time(rem, f"“{spoken.text[spoken.start:spoken.end].strip()}” isn't a time I "
+                                                "can read. ")
+        hhmm = spoken.hhmm(meridiem)
+        if hhmm is None:
+            t = f"{spoken.hour}:{spoken.minute:02d}"
+            q = f"Did you mean {t} AM or {t} PM?"
+            return self._draft(intent="clarify", summary="Reminder: AM or PM?", spoken=q, question=q,
+                               pending={"slot": "reminder_meridiem", "rem": rem, "hour": spoken.hour,
+                                        "minute": spoken.minute, "day": spoken.day})
+        now = _household_now(context)
+        hour, minute = map(int, hhmm.split(":"))
+        today_at = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if spoken.day == "tomorrow":
+            when = today_at + timedelta(days=1)
+        elif today_at > now:
+            when = today_at
+        else:
+            # Already past today: don't quietly move it to tomorrow.
+            when = today_at + timedelta(days=1)
+            q = (f"{say_hhmm(hhmm)} has already passed today. Do you mean tomorrow, {_say_date(when)}, "
+                 f"at {say_hhmm(hhmm)}?")
+            return self._draft(intent="clarify", summary="Reminder: tomorrow?", spoken=q, question=q,
+                               pending={"slot": "reminder_confirm", "rem": rem, "due": hhmm,
+                                        "date": when.date().isoformat()})
+        if spoken.guessed:
+            q = f"Did you mean {say_hhmm(hhmm)}" + (f" tomorrow, {_say_date(when)}" if spoken.day == "tomorrow"
+                                                     else "") + "?"
+            return self._draft(intent="clarify", summary="Reminder: confirm time", spoken=q, question=q,
+                               pending={"slot": "reminder_confirm", "rem": rem, "due": hhmm,
+                                        "date": when.date().isoformat()})
+        return self._reminder_draft(rem, hhmm, when.date().isoformat(), None, now=now)
+
+    def _ask_reminder_time(self, rem: dict[str, Any], lead: str = "") -> PlanDraft:
+        q = "What time should I set it for?"
+        return self._draft(intent="clarify", summary="Reminder: what time?", spoken=lead + q, question=lead + q,
+                           pending={"slot": "reminder_time", "rem": rem})
+
+    def _reminder_draft(self, rem: dict[str, Any], due: str | None, due_date: str | None, due_in: float | None,
+                        now: datetime | None = None) -> PlanDraft:
+        title, said, check = rem["title"], rem["said"], rem.get("check")
+        if due_in:
+            when = f" in {_say_minutes(due_in)}"
+        elif due and due_date:
+            day = date.fromisoformat(due_date)
+            today = (now or datetime.now()).date()
+            rel = "today" if day == today else "tomorrow" if day == today + timedelta(days=1) else ""
+            when = f" at {say_hhmm(due)} " + (f"{rel} ({_say_date(day)})" if rel else f"on {_say_date(day)}")
+        else:
+            when = ""
         how = (" When it's due, I'll check the device myself and tell you whether it's actually done."
                if check else
                " I can't observe this one, so when it's due I'll ask you to confirm it." if (due or due_in) else
                " It has no time set, so I won't alert you; it will stay in your list.")
         reminder: dict[str, Any] = {"title": title[:80], "due": due, "note": "Created by voice request.",
                                     "category": "general"}
+        if due_date:
+            reminder["due_date"] = due_date
         if due_in:
             reminder["due_in_minutes"] = due_in
             reminder["due"] = None
@@ -364,13 +465,51 @@ class LocalPlanner:
             reminder["check"] = check
         return self._draft(
             intent="device_control", summary=f"Create reminder: {title}",
-            spoken=f"I'll add a reminder to {rest}{when} once you approve.{how}",
+            spoken=f"I'll add a reminder to {said}{when} once you approve.{how}",
             actions=[PlannedAction(action="create_reminder", title=f"Add reminder: {title}{when}"[:120],
                                    rationale="You asked for a reminder." + (
-                                       f" AURA will verify it against the {act.device_id.replace('_', ' ')}."
+                                       f" AURA will verify it against the {check['device_id'].replace('_', ' ')}."
                                        if check else ""),
                                    reminder=reminder)],
         )
+
+    def _fill_reminder(self, text: str, pending: dict[str, Any], context: dict[str, Any]) -> PlanDraft | None:
+        slot, rem = pending["slot"], pending.get("rem") or {}
+        answer = normalise(text).strip(" .!?")
+        full = find_time(answer) or (find_time("at " + answer) if re.match(r"^[\w:]+(\s+[\w:]+){0,3}$", answer)
+                                     else None)
+        if slot == "reminder_meridiem":
+            if full and (full.meridiem or full.twenty_four_hour or (full.hour, full.minute) != (
+                    pending["hour"], pending["minute"])):
+                if full.day is None:
+                    full.day = pending.get("day")
+                return self._reminder_at(rem, full, context)
+            # "PM", "p.m.", "in the morning", "evening please": the answer has to be just the AM/PM choice.
+            bare = " ".join(re.sub(r"\b(?:in|the|it's|its|it|is|please|i|mean|meant|said|make|at)\b|[,!?]", " ",
+                                   answer).split())
+            mer = ("am" if re.fullmatch(r"a\.?\s?m\.?|morning", bare) else
+                   "pm" if re.fullmatch(r"p\.?\s?m\.?|afternoon|evening|night|tonight", bare) else None)
+            if mer is None:
+                return None
+            spoken = SpokenTime(pending["hour"], pending["minute"], mer, False, pending.get("day"), 0, 0, False, "")
+            return self._reminder_at(rem, spoken, context)
+        if slot == "reminder_confirm":
+            if YES.search(answer) and not full:
+                return self._reminder_draft(rem, pending["due"], pending["date"], None, now=_household_now(context))
+            if NO.search(answer) and not full:
+                return self._ask_reminder_time(rem, "Okay, I haven't set it. ")
+            if full:
+                return self._reminder_at(rem, full, context)
+            return None
+        if slot == "reminder_time":
+            if rel := re.search(r"\bin\s+(.+)$", answer):
+                secs = _duration_s(rel.group(1))
+                if secs:
+                    return self._reminder_draft(rem, None, None, round(secs / 60, 2))
+            if full:
+                return self._reminder_at(rem, full, context)
+            return None
+        return None
 
     def _cased(self, fragment: str) -> str:
         """Recover the user's capitalisation (names like Luna) for a fragment of the lower-cased text."""

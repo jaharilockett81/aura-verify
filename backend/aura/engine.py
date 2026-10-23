@@ -280,6 +280,8 @@ class WorkflowEngine:
                 expected = {"title": (a.reminder or {}).get("title")}
                 if (a.reminder or {}).get("due") is not None or not (a.reminder or {}).get("due_in_minutes"):
                     expected["due"] = (a.reminder or {}).get("due")
+                if (a.reminder or {}).get("due_date"):
+                    expected["due_date"] = a.reminder["due_date"]
             elif a.action == "timer":
                 t = a.timer or {}
                 target = "timer:pending"
@@ -673,6 +675,8 @@ class WorkflowEngine:
             args["due_in_minutes"] = rem["due_in_minutes"]
         if rem.get("check"):
             args["check"] = rem["check"]
+        if rem.get("due_date"):
+            args["due_date"] = rem["due_date"]
         res = await self._tool(run, step, "create_reminder", args)
         step.attempts = 1
         if not res.ok:
@@ -691,7 +695,8 @@ class WorkflowEngine:
             obs = ver.data["observed"]
             check = " It will be checked against the device when due." if obs.get("check") else ""
             self._evidence(run, step, "verification", "verify_action",
-                           f"Read back reminder “{obs['title']}” at {obs['due'] or 'no set time'}.{check}", ver.data)
+                           f"Read back reminder “{obs['title']}” at {obs['due'] or 'no set time'}"
+                           f"{' on ' + obs['due_date'] if obs.get('due_date') else ''}.{check}", ver.data)
             self._set(run, step, StepStatus.VERIFIED, Assurance.VERIFIED)
         else:
             step.error = "Reminder could not be read back after saving."

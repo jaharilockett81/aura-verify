@@ -134,3 +134,35 @@ test('mic button: saying just "Aura" answers by name and reopens the mic; typing
   await page.waitForTimeout(500)
   expect(await listening(page)).toEqual([])
 })
+
+test('spoken reminder time "7 40 a.m." keeps its minutes and the approval card shows the date and time', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Speak a request' }).click()
+  await expect.poll(() => listening(page)).toEqual(['request'])
+  // This is how Chrome's recogniser wrote "7:40 AM" in the reported bug.
+  expect(await hear(page, 'remind me to take the dog out at 7 40 a.m. tomorrow')).toBeTruthy()
+  await expect(page.getByText(/Add reminder: Take the dog out at 7:40 AM tomorrow/).first()).toBeVisible({ timeout: 15_000 })
+  // The bug saved "Take the dog out 40 a.m." at 7:00; the planned step must carry neither.
+  await expect(page.getByText(/Take the dog out 40/)).toHaveCount(0)
+  await expect(page.getByText(/7:00 AM/)).toHaveCount(0)
+  await expect(page.getByTestId('reminder-when').first()).toContainText('· 7:40 AM')
+  await page.getByRole('button', { name: 'Approve & run' }).first().click()
+  await expect(page.getByText('Everything verified')).toBeVisible({ timeout: 20_000 })
+  const rems = await (await page.request.get('/api/reminders')).json()
+  const saved = rems.reminders.find((r: any) => r.title === 'Take the dog out')
+  expect(saved.due).toBe('07:40')
+  expect(saved.due_date).toBe(new Date(Date.now() + 86_400_000).toISOString().slice(0, 10))
+})
+
+test('spoken reminder without AM/PM: AURA asks, listens, and uses the answer', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Speak a request' }).click()
+  await expect.poll(() => listening(page)).toEqual(['request'])
+  expect(await hear(page, 'remind me to call mom tomorrow at nine thirty')).toBeTruthy()
+  await expect(page.locator('[data-role="assistant"]').last()).toHaveText('Did you mean 9:30 AM or 9:30 PM?')
+  await expect(page.getByRole('button', { name: 'Approve & run' })).toHaveCount(0)
+  await expect.poll(() => listening(page)).toEqual(['request'])
+  expect(await hear(page, 'p.m.')).toBeTruthy()
+  await expect(page.getByText(/Add reminder: Call mom at 9:30 PM tomorrow/).first()).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('reminder-when').first()).toContainText('· 9:30 PM')
+})

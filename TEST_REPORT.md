@@ -112,6 +112,36 @@ reminder title. Both fixed. Added the "Aura" → "Yes, Jahari?" wake reply and a
   typed "Aura" does not). `chat.spec.ts` and `conversation.spec.ts` greet with "Hi Aura" for the same reason.
 - Not tested: real wake-word listening with a microphone (needs Chrome on a real machine).
 
+### Spoken reminder times (2026-10-23, ~11:40Z)
+
+Reported: spoken “7:40 AM” saved as “Take the dog out 40 a.m.” at 7:00; “5:30 AM” as “Take out the trash
+30 a.m.” at 5:00. Reproduced in the planner before changing anything: the transcript form “at 7 40 a.m.”
+(hour and minutes separated by a space, as Chrome's recogniser sometimes writes them) gave exactly
+`('Take the dog out 40 a.m', '07:00')`, while “7:40 a.m.” and “7:40 AM” parsed correctly. So the hour
+*was* in the transcript; AURA's time regex only accepted “H:MM” and read “7” as 7:00. A voice debug log
+(`aura.speech`) now records the raw transcript and the parsed time so this can be confirmed on a real mic.
+
+- pytest: **172 passed** (+60 in `tests/test_spoken_times.py`; the dotted “p.m.” fix pushed earlier has its own
+  tests in `test_reminders.py`). Covers the two reported cases end to end (plan → approval → MCP `create_reminder` → `verify_action`
+  read-back of time *and* date → stored row), 23 transcript shapes, 6 AM/PM-unknown forms, 6 non-times
+  (“take 2 pills”, “call room 740”), title cleanup, AM/PM questions and spoken answers (“p.m.”, “in the
+  morning”), “I am not sure” not taken as AM, past-time → tomorrow question (yes / no → new time),
+  run-together digits and lost-minute transcripts confirmed first, impossible times (“19 pm”, “25:00 pm”)
+  asked again, typed times, relative reminders unchanged, and a past `due_date` refused by the MCP tool.
+  The services clock is pinned in tests (08:00 UTC tomorrow, `AURA_TZ`=UTC) so results don't depend on the
+  hour the suite runs.
+- Playwright: **21 passed**, two consecutive runs (+2 in `e2e/wake.spec.ts` with fake SpeechRecognition:
+  the “7 40 a.m. tomorrow” transcript → plan shows “7:40 AM tomorrow” and the “· 7:40 AM” date chip, nothing
+  with “40” in the title or “7:00 AM”, approval → stored `due` 07:40 with tomorrow's date; and “tomorrow at
+  nine thirty” → AM/PM question with no plan → mic reopens → “p.m.” → 9:30 PM plan).
+- Live check against the running server (API with `source: voice`): the two reported phrasings, “three
+  forty-two p.m.”, “half past five” → question → “p.m.”, “seven forty-five tonight”, “tomorrow at nine
+  thirty” → “in the morning” all planned with the right time and date; the `aura.speech` log lines showed
+  the raw transcript and parsed time. Screenshots from the running app are in the project files under
+  `aura-verify/screenshots/spoken-times/`.
+- Not tested: a real microphone. The exact transcript Chrome produces on Jahari's machine is unknown; the
+  debug log will show it.
+
 ## Timing at default settings (manual, API-driven, 2026-10-22)
 
 Signature scenario with `AURA_SIM_SETTLE_MS=600`, `AURA_VERIFY_TIMEOUT_S=3.0`: plan 0.14 s → approve →

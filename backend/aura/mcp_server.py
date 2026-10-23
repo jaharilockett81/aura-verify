@@ -109,15 +109,18 @@ def build_mcp_server(services: HouseholdServices) -> MCPServer:
     @mcp.tool(annotations=WRITE_IDEMPOTENT)
     def create_reminder(title: str, idempotency_key: str, due: str | None = None, note: str | None = None,
                         category: str = "general", due_in_minutes: float | None = None,
-                        check: dict[str, Any] | None = None) -> dict[str, Any]:
+                        check: dict[str, Any] | None = None, due_date: str | None = None) -> dict[str, Any]:
         """Store a household reminder. `due` is a 24-hour time such as 21:30, or use `due_in_minutes`.
+
+        `due_date` (YYYY-MM-DD, household time zone) pins the day; without it the next occurrence of `due` is used.
+        A date and time already in the past is rejected rather than moved.
 
         `check` = {"device_id", "expected"} names a device state that proves the task was done (e.g. the front
         door locked); AURA verifies it independently when the reminder is due or marked done. Alerts appear only
         in an open AURA tab; nothing is pushed to a phone.
         """
         return _call(services.create_reminder, title, due, note, category, idempotency_key, due_in_minutes,
-                     check)
+                     check, due_date)
 
     @mcp.tool(annotations=READ)
     def list_reminders() -> dict[str, Any]:

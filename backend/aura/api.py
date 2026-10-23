@@ -10,7 +10,7 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,11 +29,15 @@ from .services import SIMULATION_NOTICE, HouseholdServices
 from .simulator import FAULT_KINDS, DeviceError
 
 log = logging.getLogger("aura.api")
+speech_log = logging.getLogger("aura.speech")
 
 
 class ChatIn(BaseModel):
     session_id: str | None = None
     text: str = Field(min_length=1, max_length=500)
+    source: Literal["typed", "voice"] = "typed"
+    # What the browser's speech recognition returned, before the app tidied the wake word. Logged, not stored.
+    transcript: str | None = Field(default=None, max_length=500)
 
 
 class DecisionIn(BaseModel):
@@ -163,6 +167,8 @@ def create_app(settings: Settings | None = None, services: HouseholdServices | N
     @app.post("/api/chat")
     async def chat(body: ChatIn) -> dict[str, Any]:
         session_id = services.ledger.ensure_session(body.session_id)
+        if body.source == "voice":
+            speech_log.info("voice input: recogniser transcript=%r, sent to planner=%r", body.transcript, body.text)
         try:
             out = await engine.handle_utterance(session_id, body.text)
         except EngineError as exc:

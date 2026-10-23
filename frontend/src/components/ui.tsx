@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import {
+  AlarmClock,
   AlertTriangle,
   Ban,
   CheckCircle2,
@@ -12,7 +13,7 @@ import {
   ScanEye,
   XCircle,
 } from 'lucide-react'
-import type { StepStatus } from '../lib/types'
+import type { Step, StepStatus } from '../lib/types'
 import { TONE_CLASSES } from '../lib/format'
 import type { Tone } from '../lib/format'
 
@@ -207,6 +208,21 @@ export function Expander({ open, children, className }: { open: boolean; childre
   return (
     <div className={cx('expander', className)} data-open={open ? 'true' : 'false'} aria-hidden={!open}>
       <div>{mounted && children}</div>
+    </div>
+  )
+}
+
+/** The exact date and time a reminder step will save, so it can be checked before approving. */
+export function ReminderWhen({ step }: { step: Step }) {
+  const rem = step.action === 'create_reminder' ? (step.params?.reminder as Record<string, any> | undefined) : undefined
+  if (!rem?.due || !rem?.due_date) return null
+  const [y, m, d] = String(rem.due_date).split('-').map(Number)
+  const [hh, mm] = String(rem.due).split(':').map(Number)
+  const day = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = `${hh % 12 || 12}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`
+  return (
+    <div data-testid="reminder-when" className="mt-1 flex w-fit items-center gap-1.5 rounded-full bg-[#dcebf5] px-2.5 py-0.5 text-[13px] font-semibold text-ink">
+      <AlarmClock className="size-3.5" aria-hidden /> {day} · {time}
     </div>
   )
 }

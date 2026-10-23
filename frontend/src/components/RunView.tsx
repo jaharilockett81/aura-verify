@@ -23,7 +23,7 @@ import {
 import type { AuraEvent, Evidence, Run, Step } from '../lib/types'
 import { STEP_STATUS_LABEL, clock, hm, stepTone } from '../lib/format'
 import { Glyph, kindForStep } from './Devices'
-import { Badge, Button, Expander, cx } from './ui'
+import { Badge, Button, Expander, ReminderWhen, cx } from './ui'
 
 // ----- progress timeline ----------------------------------------------------------------------------------
 type Phase = 'done' | 'active' | 'attention' | 'idle' | 'skipped'
@@ -308,6 +308,7 @@ export function StepCard({
             <span className="text-[13px] text-ink-soft lg:text-[15px]">{step.title}</span>
             {at && <span className="shrink-0 text-[12px] tabular-nums text-ink-mute lg:text-[13px]">{hm(at)}</span>}
           </div>
+          <ReminderWhen step={step} />
           {(step.risk !== 'ROUTINE' || step.attempts > 1 || recovered) && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {step.risk === 'SENSITIVE' && <Badge tone="recover"><ShieldAlert className="size-3" /> Sensitive</Badge>}

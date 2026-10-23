@@ -38,8 +38,9 @@ export const api = {
   health: () => req<Health>('/api/health'),
   newSession: () => post<{ session_id: string }>('/api/sessions'),
   messages: (sid: string) => req<{ messages: Message[] }>(`/api/sessions/${sid}/messages`),
-  chat: (sessionId: string | null, text: string) =>
-    post<{ session_id: string; message: Message; run: Run | null }>('/api/chat', { session_id: sessionId, text }),
+  // Voice requests also send the recogniser's raw transcript, which the server logs for debugging (not stored).
+  chat: (sessionId: string | null, text: string, voice?: { source: 'voice'; transcript: string }) =>
+    post<{ session_id: string; message: Message; run: Run | null }>('/api/chat', { session_id: sessionId, text, ...voice }),
   runs: (status?: string) => req<{ runs: Run[] }>(`/api/runs${status ? `?status=${status}` : ''}`),
   run: (id: string) => req<Run>(`/api/runs/${id}`),
   runEvents: (id: string) => req<{ events: AuraEvent[] }>(`/api/runs/${id}/events`),

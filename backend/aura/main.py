@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 
 import uvicorn
 
@@ -44,6 +45,8 @@ def cli() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     for noisy in ("httpx", "httpx2", "mcp", "mcp.client", "mcp.server"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+    if os.getenv("AURA_LOG_SPEECH", "1") in ("0", "false", "no"):
+        logging.getLogger("aura.speech").setLevel(logging.WARNING)
     if args.command == "serve":
         asyncio.run(serve())
     elif args.command == "mcp":

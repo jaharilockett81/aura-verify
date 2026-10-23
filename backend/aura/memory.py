@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from datetime import date, datetime
 from typing import Any
 
-from .clock import household_tz, iso, local_hhmm, next_occurrence, parse_iso
+from .clock import household_tz, iso, local_hhmm, next_occurrence, parse_iso, utcnow
 from .db import Database, dumps, now_iso
 from .models import PlannedAction
 
@@ -119,9 +120,10 @@ _PREF_TOKEN = re.compile(r"\{pref:([a-z_]+)\}")
 
 
 class Memory:
-    def __init__(self, db: Database, timezone: str = ""):
+    def __init__(self, db: Database, timezone: str = "", clock=utcnow):
         self.db = db
         self.timezone = timezone
+        self.clock = clock
 
     # ----- seed --------------------------------------------------------------------------------
     def seed(self, force: bool = False) -> None:
@@ -302,7 +304,7 @@ class Memory:
     # `check` (optional) is a device state that proves the task was done, e.g. the front door locked.
     def create_reminder(self, title: str, due: str | None, note: str | None, category: str,
                         idempotency_key: str, due_at: str | None = None,
-                        check: dict[str, Any] | None = None) -> dict[str, Any]:
+                        check: dict[str, Any] | None = None, due_date: str | None = None) -> dict[str, Any]:
         title = (title or "").strip()
         if not title or len(title) > 80:
             raise MemoryError("Reminder title is required (max 80 chars).")
@@ -312,6 +314,19 @@ class Memory:
                                   or not check["expected"]):
             raise MemoryError("A reminder check needs a device_id and the expected state.")
         tz = household_tz(self.timezone)
+        if due_date is not None:
+            # An explicit day (the planner asked before choosing tomorrow): use it exactly, never roll it forward.
+            if due is None:
+                raise MemoryError("A reminder date needs a due time.")
+            try:
+                day = date.fromisoformat(due_date)
+            except ValueError as exc:
+                raise MemoryError("Reminder date must look like 2026-10-24.") from exc
+            hour, minute = (int(x) for x in due.split(":"))
+            at = datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)
+            if at <= self.clock():
+                raise MemoryError(f"{due_date} {due} has already passed; pick a later time.")
+            due_at = iso(at)
         if due_at is None and due is not None:
             due_at = iso(next_occurrence(due, tz))
         if due_at is not None and due is None:
@@ -371,11 +386,13 @@ class Memory:
         with self.db.transaction() as conn:
             return conn.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,)).rowcount > 0
 
-    @staticmethod
-    def _reminder(r) -> dict[str, Any]:
+    def _reminder(self, r) -> dict[str, Any]:
         keys = r.keys()
         get = (lambda k, default=None: r[k] if k in keys and r[k] is not None else default)
-        return {"reminder_id": r["id"], "title": r["title"], "due": r["due"], "note": r["note"],
+        due_at = get("due_at")
+        return {"reminder_id": r["id"], "title": r["title"], "due": r["due"],
+                "due_date": parse_iso(due_at).astimezone(household_tz(self.timezone)).date().isoformat()
+                if due_at else None, "note": r["note"],
                 "category": r["category"], "created_at": r["created_at"], "simulated": True,
                 "status": get("status", "unscheduled"), "due_at": get("due_at"),
                 "check": json.loads(get("check_spec")) if get("check_spec") else None,

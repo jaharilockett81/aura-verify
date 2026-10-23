@@ -86,6 +86,18 @@ answer. AURA keeps six assurance levels separate and never merges them:
 - **Spoken replies.** With Voice replies on, AURA speaks its own transcript messages (plans, questions,
   verified results) and reminder and timer alerts, using the browser's speech synthesis. Plan replies say
   what will happen once you approve; nothing is spoken as done before it has been verified.
+- **Reminder times as spoken** (`backend/aura/planner/spoken_time.py`). Chrome's speech recognition writes
+  “7:40 AM” as “7:40 a.m.”, “7 40 a.m.”, “740 a.m.” or “seven forty a.m.”; all are read as 7:40 AM, as are
+  “three forty-two pm”, “seven forty-five tonight”, “quarter to eight pm”, “seven o'clock in the morning”,
+  “noon” and 24-hour “19:40”. The whole time phrase is removed from the reminder's title. AURA never fills in
+  what wasn't said: no AM/PM (“at 9:30”, “half past five”) gets “Did you mean 9:30 AM or 9:30 PM?”; a reading
+  that needed guessing (“740 a.m.”, “9: a.m.”) gets “Did you mean 9:40 AM?”; a time already past today gets
+  “… has already passed today. Do you mean tomorrow …?”. The plan card shows the exact date and time
+  (e.g. “Sat, Oct 24 · 7:40 AM”); the reminder is stored with that date through the `create_reminder` MCP tool
+  (`due_date`) and read back by `verify_action`, which checks the date as well as the time.
+- **Speech debug log.** With `AURA_LOG_SPEECH=1` (the default), the server console logs each voice request's
+  raw recogniser transcript and how the reminder time was read (`aura.speech`). Text only, console only; no
+  audio is ever recorded. Set `AURA_LOG_SPEECH=0` to turn it off.
 - **“Aura” wake word.** Saying just “Aura” (or “Hey Aura”) gets “Yes, Jahari?” (the name comes from the
   saved *What AURA calls you* preference), then the mic reopens for your request. When AURA asks a question
   back (“What should I remind you about?”) after a spoken request, it listens for the answer too. Turn on
