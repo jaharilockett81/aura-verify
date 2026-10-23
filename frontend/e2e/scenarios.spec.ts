@@ -29,7 +29,7 @@ async function confirmLock(page: Page) {
 test('Scenario 1: overnight shift routine runs, pauses for the lock, and verifies every step', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText(/MCP · Streamable HTTP/).first()).toBeVisible()
-  await page.getByRole('button', { name: /prepare the house before my overnight shift/ }).click()
+  await page.getByRole('button', { name: 'Overnight shift' }).click()
 
   await expect(page.getByText('Run routine: Overnight shift').first()).toBeVisible()
   await expect(page.getByText('Set the thermostat to 72°F')).toBeVisible()
@@ -51,7 +51,7 @@ test('Scenario 1: overnight shift routine runs, pauses for the lock, and verifie
 
 test('Scenario 2: thermostat acknowledges but does not change; AURA detects, explains, recovers with approval', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Run the thermostat failure demo' }).click()
+  await page.getByRole('button', { name: 'Run failure demo' }).click()
   await expect(page.getByText('Run routine: Overnight shift').first()).toBeVisible()
   await approvePlan(page)
 
@@ -86,7 +86,7 @@ test('Scenario 3: a preference change persists and is applied in a new session',
 
   await page.getByRole('link', { name: 'Home' }).first().click()
   await page.getByRole('button', { name: /New session/ }).click()
-  await expect(page.getByText('Try one of these:')).toBeVisible()
+  await expect(page.getByText(/Every action is checked against/)).toBeVisible()
   await page.reload() // a full page reload: nothing but the server's stored memory carries over
   await page.getByLabel('Ask AURA').fill('Get everything prepared for bedtime.')
   await page.getByRole('button', { name: 'Send' }).click()

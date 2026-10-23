@@ -30,7 +30,7 @@ test('voice input (fake SpeechRecognition) sends the transcript through the norm
   })
   await page.goto('/')
   await page.getByRole('button', { name: 'Speak a request' }).click()
-  await expect(page.locator('div.rounded-br-md', { hasText: 'Get everything prepared for bedtime.' })).toBeVisible()
+  await expect(page.locator('[data-role="user"]', { hasText: 'Get everything prepared for bedtime.' })).toBeVisible()
   await expect(page.getByText('Run routine: Bedtime').first()).toBeVisible()
 })
 

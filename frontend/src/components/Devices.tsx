@@ -8,7 +8,7 @@ import { Badge, cx } from './ui'
 
 function DeviceIcon({ d }: { d: Device }) {
   const on = d.state?.power === 'on'
-  const c = 'size-5'
+  const c = 'size-[18px]'
   if (!d.reachable) return <WifiOff className={cx(c, 'text-unknown')} />
   switch (d.type) {
     case 'thermostat':
@@ -46,29 +46,27 @@ export function useDevices() {
   return { devices, faults }
 }
 
-export function DeviceGrid() {
+export function DeviceStrip() {
   const { devices, faults } = useDevices()
   return (
-    <div className="grid grid-cols-2 gap-2.5">
+    <ul className="grid grid-cols-1 gap-1 rounded-3xl bg-white/[0.025] p-1.5 ring-1 ring-white/6 sm:grid-cols-2">
       {devices.map((d) => {
         const faulty = !!faults[d.device_id]
         return (
-          <div
-            key={d.device_id}
-            className={cx(
-              'rounded-2xl bg-night-950/40 p-3 ring-1 transition-colors',
-              faulty ? 'ring-recover/30' : 'ring-white/6',
-            )}
-          >
-            <div className="flex items-center justify-between">
+          <li key={d.device_id} className="flex items-center gap-3 rounded-2xl px-3 py-2.5">
+            <span className={cx('grid size-9 shrink-0 place-items-center rounded-full bg-night-950/50 ring-1', faulty ? 'ring-recover/40' : 'ring-white/8')}>
               <DeviceIcon d={d} />
-              {faulty && <Badge tone="recover">sim fault</Badge>}
-            </div>
-            <div className="mt-2 truncate text-[13px] font-semibold">{d.name}</div>
-            <div className={cx('text-xs', d.reachable ? 'text-ink-soft' : 'text-unknown')}>{deviceSummary(d)}</div>
-          </div>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold">{d.name}</span>
+              <span className={cx('block truncate text-xs', d.reachable ? 'text-ink-soft' : 'text-unknown')}>
+                {deviceSummary(d)}
+              </span>
+            </span>
+            {faulty && <Badge tone="recover">sim fault</Badge>}
+          </li>
         )
       })}
-    </div>
+    </ul>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowUp, Mic, MicOff, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowUp, Mic, MicOff, RefreshCw, ShieldCheck } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
 import { speak, useSpeechInput } from '../lib/speech'
@@ -9,13 +10,6 @@ import { RUN_STATUS_LABEL, runTone } from '../lib/format'
 import { Orb } from './Orb'
 import type { OrbState } from './Orb'
 import { Badge, Button, ErrorNote, StatusIcon, cx } from './ui'
-
-export const SUGGESTIONS = [
-  'Alexa, prepare the house before my overnight shift.',
-  'Get everything prepared for bedtime.',
-  'Actually, I prefer my bedtime temperature at 70 degrees.',
-  "What's the thermostat at?",
-]
 
 export function useConversation() {
   const { sessionId, ensureSession, newSession, voiceReplies, toast } = useAura()
@@ -128,7 +122,7 @@ function PlanCard({ runId }: { runId: string }) {
   }
 
   return (
-    <div className="mt-2 animate-rise rounded-2xl border border-lav-400/20 bg-night-800/70 p-4">
+    <div className="mt-3 animate-rise rounded-3xl bg-night-850/80 p-5 ring-1 ring-lav-400/15 backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm font-bold">{run.summary}</div>
         <Badge tone={runTone(run.status)}>{RUN_STATUS_LABEL[run.status]}</Badge>
@@ -178,18 +172,73 @@ function PlanCard({ runId }: { runId: string }) {
   )
 }
 
-export function Assistant({ convo }: { convo: ReturnType<typeof useConversation> }) {
+export interface Chip {
+  label: string
+  icon: LucideIcon
+  onClick: () => void
+  title?: string
+  tone?: 'default' | 'warn'
+  busy?: boolean
+}
+
+function Transcript({ messages, thinking }: { messages: Message[]; thinking: boolean }) {
+  const end = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [messages, thinking])
+  return (
+    <div className="space-y-4" aria-live="polite" aria-label="Conversation">
+      {messages.map((m) => (
+        <div key={m.id} className={cx('flex animate-rise', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+          <div className="max-w-[92%]">
+            <div
+              data-role={m.role}
+              className={cx(
+                'rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed',
+                m.role === 'user'
+                  ? 'rounded-br-lg bg-white/8 text-ink ring-1 ring-white/10'
+                  : m.meta?.recovery
+                    ? 'rounded-bl-lg bg-recover/10 text-ink ring-1 ring-recover/30'
+                    : m.meta?.final && m.meta?.status === 'COMPLETED'
+                      ? 'rounded-bl-lg bg-verified/8 text-ink ring-1 ring-verified/25'
+                      : 'rounded-bl-lg text-ink-soft',
+              )}
+            >
+              {m.text}
+            </div>
+            {m.role === 'assistant' && m.run_id && m.meta?.run_id === m.run_id && <PlanCard runId={m.run_id} />}
+          </div>
+        </div>
+      ))}
+      {thinking && (
+        <div className="flex gap-1.5 px-4 py-2" aria-label="AURA is thinking">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="size-1.5 animate-bounce rounded-full bg-lav-300/70" style={{ animationDelay: `${i * 120}ms` }} />
+          ))}
+        </div>
+      )}
+      <div ref={end} />
+    </div>
+  )
+}
+
+/** Centered, Alexa+-inspired assistant: greeting, transcript, one input bar, action chips. */
+export function CenteredAssistant({
+  convo,
+  greeting,
+  chips,
+}: {
+  convo: ReturnType<typeof useConversation>
+  greeting: React.ReactNode
+  chips: Chip[]
+}) {
   const { messages, thinking, error, send, reset } = convo
   const [text, setText] = useState('')
-  const scroller = useRef<HTMLDivElement>(null)
   const voice = useSpeechInput((t) => {
     setText('')
     send(t)
   })
-
-  useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
-  }, [messages, thinking])
+  const empty = messages.length === 0 && !thinking
 
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
   const orbState: OrbState = voice.listening
@@ -208,84 +257,47 @@ export function Assistant({ convo }: { convo: ReturnType<typeof useConversation>
   }
 
   return (
-    <section className="card flex min-h-[480px] flex-col overflow-hidden" aria-labelledby="assistant-title">
-      <div className="flex items-center gap-4 border-b border-white/6 p-5">
-        <Orb state={orbState} />
-        <div className="min-w-0 flex-1">
-          <h2 id="assistant-title" className="font-bold">
-            Talk to AURA
-          </h2>
-          <p className="text-xs text-ink-mute">
-            {voice.listening
-              ? voice.interim || 'Listening…'
-              : thinking
-                ? 'Planning…'
-                : 'Say or type a request. You approve plans before anything runs.'}
+    <section
+      aria-label="Talk to AURA"
+      className={cx(
+        'mx-auto flex w-full max-w-2xl flex-col items-center transition-all duration-500',
+        empty ? 'min-h-[calc(100vh-15rem)] justify-center' : 'pt-4',
+      )}
+    >
+      <div className={cx('flex flex-col items-center text-center transition-all', empty ? 'gap-6' : 'gap-3')}>
+        <Orb state={orbState} size={empty ? 64 : 40} />
+        <h1 className={cx('font-display leading-tight tracking-tight text-ink', empty ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl')}>
+          {greeting}
+        </h1>
+        {empty && (
+          <p className="max-w-md text-sm text-ink-mute">
+            Every action is checked against the device&apos;s actual state. You approve plans before anything runs.
           </p>
+        )}
+      </div>
+
+      {!empty && (
+        <div className="mt-8 w-full">
+          <Transcript messages={messages} thinking={thinking} />
         </div>
-        <Button size="sm" variant="ghost" onClick={reset} title="Start a new conversation. Saved memory is kept.">
-          <RefreshCw className="size-3.5" /> New session
-        </Button>
-      </div>
+      )}
 
-      <div ref={scroller} className="scroll-thin flex-1 space-y-4 overflow-y-auto p-5" aria-live="polite">
-        {messages.length === 0 && !thinking && (
-          <div className="flex h-full flex-col items-center justify-center gap-4 py-6 text-center">
-            <Sparkles className="size-6 text-lav-300" aria-hidden />
-            <p className="max-w-sm text-sm text-ink-soft">Try one of these:</p>
-            <div className="flex max-w-lg flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => send(s)}
-                  className="rounded-full bg-white/5 px-3.5 py-2 text-left text-xs text-ink-soft ring-1 ring-white/10 transition hover:bg-lav-400/10 hover:text-lav-200 hover:ring-lav-400/30"
-                >
-                  “{s}”
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {messages.map((m) => (
-          <div key={m.id} className={cx('flex animate-rise', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-            <div className={cx('max-w-[92%]', m.role === 'user' ? 'items-end' : 'items-start')}>
-              <div
-                className={cx(
-                  'rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed',
-                  m.role === 'user'
-                    ? 'rounded-br-md bg-lav-400/18 text-lav-200 ring-1 ring-lav-400/25'
-                    : m.meta?.recovery
-                      ? 'rounded-bl-md bg-recover/10 text-ink ring-1 ring-recover/30'
-                      : m.meta?.final && m.meta?.status === 'COMPLETED'
-                        ? 'rounded-bl-md bg-verified/8 text-ink ring-1 ring-verified/25'
-                        : 'rounded-bl-md bg-white/5 text-ink ring-1 ring-white/8',
-                )}
-              >
-                {m.text}
-              </div>
-              {m.role === 'assistant' && m.run_id && m.meta?.run_id === m.run_id && <PlanCard runId={m.run_id} />}
-            </div>
-          </div>
-        ))}
-        {thinking && (
-          <div className="flex gap-1.5 px-2" aria-label="AURA is thinking">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="size-2 animate-bounce rounded-full bg-lav-300/70" style={{ animationDelay: `${i * 120}ms` }} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <form onSubmit={submit} className="border-t border-white/6 p-4">
+      <form onSubmit={submit} className={cx('w-full', empty ? 'mt-10' : 'sticky bottom-20 z-10 mt-6 lg:bottom-6')}>
         {(error || voice.error) && <div className="mb-3"><ErrorNote>{voice.error ?? error}</ErrorNote></div>}
-        <div className="flex items-center gap-2 rounded-2xl bg-night-950/60 p-1.5 ring-1 ring-white/10 focus-within:ring-lav-400/40">
+        <div
+          className={cx(
+            'flex items-center gap-1.5 rounded-full bg-night-850/90 p-1.5 pl-2 ring-1 backdrop-blur-xl transition-all',
+            'shadow-[0_0_0_1px_rgba(196,181,253,0.06),0_18px_60px_-20px_rgba(99,102,241,0.55),0_0_40px_-12px_rgba(139,92,246,0.45)]',
+            voice.listening ? 'ring-verified/50' : 'ring-lav-400/25 focus-within:ring-lav-300/60',
+          )}
+        >
           <button
             type="button"
             onClick={voice.listening ? voice.stop : voice.start}
             disabled={!voice.supported || thinking}
             className={cx(
-              'grid size-10 shrink-0 place-items-center rounded-xl transition',
-              voice.listening ? 'bg-verified/20 text-verified' : 'text-ink-soft hover:bg-white/8 hover:text-ink',
+              'grid size-10 shrink-0 place-items-center rounded-full transition',
+              voice.listening ? 'bg-verified/20 text-verified' : 'text-lav-300 hover:bg-white/8 hover:text-lav-200',
               !voice.supported && 'cursor-not-allowed opacity-40',
             )}
             aria-label={voice.listening ? 'Stop listening' : 'Speak a request'}
@@ -300,21 +312,52 @@ export function Assistant({ convo }: { convo: ReturnType<typeof useConversation>
             id="ask"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="“Alexa, get everything ready for bedtime”"
+            placeholder={voice.listening ? voice.interim || 'Listening…' : 'Ask AURA'}
             maxLength={500}
             autoComplete="off"
-            className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[15px] text-ink placeholder:text-ink-mute/70 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-[15px] text-ink placeholder:text-ink-mute focus:outline-none"
           />
           <button
             type="submit"
             disabled={!text.trim() || thinking}
-            className="grid size-10 shrink-0 place-items-center rounded-xl bg-lav-300 text-night-950 transition hover:bg-lav-200 disabled:opacity-30"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-lav-300 text-night-950 transition hover:bg-lav-200 disabled:bg-white/8 disabled:text-ink-mute"
             aria-label="Send"
           >
             <ArrowUp className="size-5" />
           </button>
         </div>
       </form>
+
+      <div className="mt-4 flex w-full flex-wrap items-center justify-center gap-2" aria-label="Quick actions">
+        {chips.map(({ label, icon: Icon, onClick, title, tone, busy }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={onClick}
+            disabled={busy || thinking}
+            title={title}
+            className={cx(
+              'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 transition disabled:opacity-50',
+              tone === 'warn'
+                ? 'bg-recover/8 text-recover ring-recover/25 hover:bg-recover/15'
+                : 'bg-white/[0.04] text-ink-soft ring-white/10 hover:bg-white/8 hover:text-ink',
+            )}
+          >
+            <Icon className="size-3.5" aria-hidden />
+            {label}
+          </button>
+        ))}
+        {!empty && (
+          <button
+            type="button"
+            onClick={reset}
+            title="Start a new conversation. Saved memory is kept."
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-ink-mute hover:text-ink"
+          >
+            <RefreshCw className="size-3.5" aria-hidden /> New session
+          </button>
+        )}
+      </div>
     </section>
   )
 }

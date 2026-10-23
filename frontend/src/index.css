@@ -51,12 +51,17 @@ html, body, #root {
   min-height: 100%;
 }
 
+html {
+  background-color: #0b1230;
+}
+
 body {
   margin: 0;
   background:
-    radial-gradient(1200px 600px at 85% -10%, rgba(139, 92, 246, 0.16), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(45, 212, 191, 0.07), transparent 60%),
-    var(--color-night-900);
+    radial-gradient(900px 520px at 50% 38%, rgba(99, 102, 241, 0.16), transparent 65%),
+    radial-gradient(1100px 700px at 50% 120%, rgba(56, 189, 248, 0.08), transparent 60%),
+    radial-gradient(800px 500px at 90% -10%, rgba(139, 92, 246, 0.12), transparent 60%),
+    linear-gradient(180deg, #060918 0%, #0a0f28 45%, #0b1230 100%);
   background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);

@@ -15,9 +15,9 @@ const NAV = [
 function Logo() {
   return (
     <div className="flex items-center gap-2.5">
-      <img src="/favicon.svg" alt="" className="size-8" />
+      <img src="/favicon.svg" alt="" className="size-7" />
       <div className="leading-tight">
-        <div className="font-display text-[22px] tracking-wide">AURA <span className="italic text-lav-300">Verify</span></div>
+        <div className="font-display text-[20px] tracking-wide">AURA <span className="italic text-lav-300">Verify</span></div>
       </div>
     </div>
   )
@@ -32,8 +32,8 @@ function StatusPills() {
     <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium">
       <span
         className={cx(
-          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ring-1 ring-inset',
-          mcp?.connected ? 'text-verified ring-verified/25 bg-verified/8' : 'text-failed ring-failed/25 bg-failed/8',
+          'inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] px-2.5 py-1 ring-1 ring-inset ring-white/8',
+          mcp?.connected ? 'text-ink-soft' : 'text-failed ring-failed/25',
         )}
         title={mcp?.connected ? `${mcp.url}` : (mcp?.error ?? healthError ?? 'Checking…')}
       >
@@ -45,10 +45,14 @@ function StatusPills() {
             : 'MCP disconnected'}
       </span>
       <span
-        className="inline-flex items-center gap-1.5 rounded-full bg-lav-400/8 px-2.5 py-1 text-lav-300 ring-1 ring-inset ring-lav-400/25"
+        className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] px-2.5 py-1 text-ink-soft ring-1 ring-inset ring-white/8"
         title={planner}
       >
+        <span className={cx('size-1.5 rounded-full', isBedrock ? 'bg-lav-300' : 'bg-ink-mute')} />
         {isBedrock ? 'Planner · Amazon Bedrock' : 'Planner · local rules (no LLM)'}
+      </span>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-recover/[0.06] px-2.5 py-1 text-recover/90 ring-1 ring-inset ring-recover/20" title="All devices are simulated">
+        Simulated home
       </span>
       {!streamConnected && !healthError && (
         <span className="rounded-full bg-recover/10 px-2.5 py-1 text-recover ring-1 ring-inset ring-recover/25">
@@ -66,81 +70,85 @@ export function Shell({ children }: { children: ReactNode }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-night-800 focus:px-3 focus:py-2">
         Skip to content
       </a>
-      <div className="flex flex-1">
-        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-white/6 px-4 py-6 lg:flex">
-          <Logo />
-          <nav className="mt-10 flex flex-col gap-1" aria-label="Main">
+
+      {/* Floating icon rail (desktop) */}
+      <aside className="fixed left-5 top-1/2 z-30 hidden -translate-y-1/2 lg:block">
+        <div className="flex flex-col items-center gap-1.5 rounded-full bg-night-850/70 p-1.5 shadow-2xl shadow-black/40 ring-1 ring-white/8 backdrop-blur-xl">
+          <nav className="flex flex-col items-center gap-1.5" aria-label="Main">
             {NAV.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={end}
+                aria-label={label}
+                title={label}
                 className={({ isActive }) =>
                   cx(
-                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
-                    isActive ? 'bg-lav-400/12 text-lav-200' : 'text-ink-soft hover:bg-white/5 hover:text-ink',
+                    'group relative grid size-11 place-items-center rounded-full transition-colors',
+                    isActive ? 'bg-lav-400/18 text-lav-200 ring-1 ring-lav-300/25' : 'text-ink-mute hover:bg-white/6 hover:text-ink',
                   )
                 }
               >
-                <Icon className="size-[18px]" aria-hidden />
-                {label}
+                <Icon className="size-[19px]" aria-hidden />
+                <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-night-800 px-2.5 py-1 text-xs font-semibold text-ink opacity-0 shadow-lg ring-1 ring-white/10 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  {label}
+                </span>
               </NavLink>
             ))}
           </nav>
-          <div className="mt-auto space-y-2">
-            <button
-              onClick={() => setDemoOpen(true)}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-recover/90 hover:bg-recover/8"
-            >
-              <FlaskConical className="size-[18px]" aria-hidden /> Demo controls
-            </button>
-            <p className="px-3 text-[11px] leading-relaxed text-ink-mute">
-              Independent hackathon project. Simulated devices. Not an Amazon product.
-            </p>
-          </div>
-        </aside>
+          <span className="my-1 h-px w-6 bg-white/10" aria-hidden />
+          <button
+            onClick={() => setDemoOpen(true)}
+            aria-label="Demo controls"
+            title="Demo controls (simulated faults)"
+            className="group relative grid size-11 place-items-center rounded-full text-recover/80 transition-colors hover:bg-recover/10 hover:text-recover"
+          >
+            <FlaskConical className="size-[19px]" aria-hidden />
+            <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-night-800 px-2.5 py-1 text-xs font-semibold text-recover opacity-0 shadow-lg ring-1 ring-white/10 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+              Demo controls
+            </span>
+          </button>
+        </div>
+      </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-white/6 bg-night-900/80 px-4 py-3 backdrop-blur-md sm:px-6">
-            <div className="flex items-center justify-between gap-3">
-              <div className="lg:hidden">
-                <Logo />
-              </div>
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-24">
+        <header className="sticky top-0 z-20 bg-gradient-to-b from-night-950/85 to-transparent px-4 pb-4 pt-3 backdrop-blur-[2px] sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <Logo />
+            <div className="flex items-center gap-2">
               <div className="hidden lg:block">
                 <StatusPills />
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setVoiceReplies(!voiceReplies)}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-ink-soft hover:bg-white/6 hover:text-ink"
-                  aria-pressed={voiceReplies}
-                  title="Read AURA's replies aloud (browser speech synthesis)"
-                >
-                  {voiceReplies ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-                  <span className="hidden sm:inline">{voiceReplies ? 'Voice replies on' : 'Voice replies off'}</span>
-                </button>
-                <button
-                  onClick={() => setDemoOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-recover hover:bg-recover/8 lg:hidden"
-                >
-                  <FlaskConical className="size-4" /> Demo
-                </button>
-              </div>
+              <button
+                onClick={() => setVoiceReplies(!voiceReplies)}
+                className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold text-ink-soft ring-1 ring-white/8 hover:bg-white/6 hover:text-ink"
+                aria-pressed={voiceReplies}
+                title="Read AURA's replies aloud (browser speech synthesis)"
+              >
+                {voiceReplies ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
+                <span className="hidden sm:inline">{voiceReplies ? 'Voice on' : 'Voice off'}</span>
+              </button>
+              <button
+                onClick={() => setDemoOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold text-recover ring-1 ring-recover/20 hover:bg-recover/8 lg:hidden"
+              >
+                <FlaskConical className="size-3.5" /> Demo
+              </button>
             </div>
-            <div className="mt-2 lg:hidden">
-              <StatusPills />
-            </div>
-          </header>
+          </div>
+          <div className="mt-2 lg:hidden">
+            <StatusPills />
+          </div>
+        </header>
 
-          <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
-            {children}
-          </main>
+        <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 pb-28 pt-4 sm:px-6 lg:pb-10">
+          {children}
+        </main>
 
-          <footer className="hidden border-t border-white/6 px-6 py-3 text-center text-[11px] text-ink-mute lg:block">
-            AURA Verify is a simulation built for the Amazon Build, Ship, Shape Developer Hackathon. It is not an
-            official Amazon or Alexa product. No real devices are controlled and no messages are sent.
-          </footer>
-        </div>
+        <footer className="px-6 pb-24 pt-4 text-center text-[11px] text-ink-mute/80 lg:pb-5">
+          AURA Verify is an independent hackathon simulation, not an official Amazon or Alexa product. Devices are
+          simulated; no real hardware is controlled and no messages are sent.
+        </footer>
       </div>
 
       <nav
