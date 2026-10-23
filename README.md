@@ -101,7 +101,7 @@ Step-by-step profile setup and a live end-to-end Bedrock check (`backend/scripts
    Watch each step pre-check the device, send the command (Accepted), then verify by an independent read
    (Verified). The front-door lock is **Sensitive**, so the run pauses for your confirmation. Finish:
    *"5 of 5 steps verified."*
-2. **Thermostat failure and recovery (signature demo).** Click **Run the thermostat failure demo**. It
+2. **Thermostat failure and recovery (signature demo).** Click the **Run failure demo** chip. It
    resets the simulated home and puts the thermostat into an energy-saver hold (AURA isn't told). Approve
    the plan. The hub acknowledges 72°F, but verification reads 76°F for the whole verification window:
    the step turns **Failed**, the diagnosis explains the hold, and AURA offers *Release the hold and set

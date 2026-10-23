@@ -18,7 +18,7 @@ Do not show trademarks you don't have rights to (no Echo device footage, no Alex
 > just act. It proves the action happened."
 
 ### 0:20–0:55 · Scenario 1: overnight shift
-*Click the suggestion "Alexa, prepare the house before my overnight shift."*
+*Click the "Overnight shift" chip (it sends "Alexa, prepare the house before my overnight shift.").*
 
 > "I work overnight. AURA pulls my routine from memory and shows the plan before anything runs: lights,
 > porch light, 72 degrees for my cat Luna, a feeding reminder, and the door lock."
@@ -35,7 +35,7 @@ Do not show trademarks you don't have rights to (no Echo device footage, no Alex
 *Click Confirm. "Everything verified, 5 of 5."*
 
 ### 0:55–1:50 · Scenario 2: the silent failure (signature moment)
-*Back to Home. Click "Run the thermostat failure demo". Approve.*
+*Back to Home. Click the "Run failure demo" chip. Approve.*
 
 > "Now the real world fights back. I've put the simulated thermostat into an energy-saver hold, and AURA
 > doesn't know. The hub says 'accepted' to 72 degrees, exactly like a real API would."
