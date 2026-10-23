@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .alerts import AlertError, AlertWorkflow
 from .config import Settings, bedrock_credentials_present, load_settings
 from .engine import EngineError, WorkflowEngine
 from .gateway import MCPToolGateway
@@ -45,6 +46,18 @@ class RecoveryIn(BaseModel):
 
 class PreferenceIn(BaseModel):
     value: Any
+
+
+class DeliveredIn(BaseModel):
+    spoken: bool = False
+
+
+class SnoozeIn(BaseModel):
+    minutes: int = 10
+
+
+class FixIn(BaseModel):
+    session_id: str | None = None
 
 
 class FaultIn(BaseModel):
@@ -79,14 +92,19 @@ def create_app(settings: Settings | None = None, services: HouseholdServices | N
     if interrupted:
         log.warning("Marked %d interrupted run(s) as unverified: %s", len(interrupted), interrupted)
 
+    alerts = AlertWorkflow(settings, services, gateway, engine)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        alerts.start()
         yield
+        await alerts.stop()
         await engine.shutdown()
         await gateway.close()
 
     app = FastAPI(title="AURA Verify API", version="0.1.0", lifespan=lifespan)
     app.state.engine = engine
+    app.state.alerts = alerts
     app.state.services = services
     app.state.gateway = gateway
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["*"],
@@ -206,6 +224,55 @@ def create_app(settings: Settings | None = None, services: HouseholdServices | N
     async def activity(limit: int = 20) -> dict[str, Any]:
         return {"events": services.ledger.recent_events(
             limit=min(limit, 100), types=("run.finished", "recovery.proposed", "run.created"))}
+
+    # ----- reminders & timers ------------------------------------------------------------------
+    async def alert_call(fn, *args):
+        try:
+            result = fn(*args)
+            return await result if asyncio.iscoroutine(result) else result
+        except AlertError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/reminders")
+    async def reminders() -> dict[str, Any]:
+        return {"reminders": services.memory.reminders(), "tabs_open": services.ledger.bus.subscriber_count}
+
+    @app.post("/api/reminders/{reminder_id}/delivered")
+    async def reminder_delivered(reminder_id: str, body: DeliveredIn) -> dict[str, Any]:
+        return await alert_call(alerts.delivered, reminder_id, body.spoken)
+
+    @app.post("/api/reminders/{reminder_id}/done")
+    async def reminder_done(reminder_id: str) -> dict[str, Any]:
+        return await alert_call(alerts.done, reminder_id)
+
+    @app.post("/api/reminders/{reminder_id}/snooze")
+    async def reminder_snooze(reminder_id: str, body: SnoozeIn) -> dict[str, Any]:
+        return await alert_call(alerts.snooze, reminder_id, body.minutes)
+
+    @app.post("/api/reminders/{reminder_id}/dismiss")
+    async def reminder_dismiss(reminder_id: str) -> dict[str, Any]:
+        return await alert_call(alerts.dismiss, reminder_id)
+
+    @app.post("/api/reminders/{reminder_id}/fix")
+    async def reminder_fix(reminder_id: str, body: FixIn) -> dict[str, Any]:
+        sid = services.ledger.ensure_session(body.session_id)
+        return await alert_call(alerts.fix, reminder_id, sid)
+
+    @app.post("/api/demo/reminders/{reminder_id}/fire")
+    async def reminder_fire(reminder_id: str) -> dict[str, Any]:
+        return await alert_call(alerts.fire_now, reminder_id)
+
+    @app.get("/api/timers")
+    async def timers(include_done: bool = True) -> dict[str, Any]:
+        return {"timers": services.timers.list(include_done=include_done)}
+
+    @app.post("/api/timers/{timer_id}/delivered")
+    async def timer_delivered(timer_id: str, body: DeliveredIn) -> dict[str, Any]:
+        return await alert_call(alerts.timer_delivered, timer_id, body.spoken)
+
+    @app.post("/api/timers/{timer_id}/{op}")
+    async def timer_op(timer_id: str, op: str) -> dict[str, Any]:
+        return await alert_call(alerts.timer_op, timer_id, op)
 
     # ----- household (read-only dashboard views) -----------------------------------------------
     @app.get("/api/devices")

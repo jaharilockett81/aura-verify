@@ -11,6 +11,7 @@ import re
 import uuid
 from typing import Any
 
+from .clock import household_tz, iso, local_hhmm, next_occurrence, parse_iso
 from .db import Database, dumps, now_iso
 from .models import PlannedAction
 
@@ -118,8 +119,9 @@ _PREF_TOKEN = re.compile(r"\{pref:([a-z_]+)\}")
 
 
 class Memory:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, timezone: str = ""):
         self.db = db
+        self.timezone = timezone
 
     # ----- seed --------------------------------------------------------------------------------
     def seed(self, force: bool = False) -> None:
@@ -293,28 +295,73 @@ class Memory:
         return actions
 
     # ----- reminders ---------------------------------------------------------------------------
+    # A reminder has three independent facts, never collapsed into one "done":
+    #   status    unscheduled | scheduled | due | closed        (where it is in its life)
+    #   delivery  NOT_DUE | PENDING | DELIVERED_IN_APP | UNCONFIRMED | NOT_DELIVERED   (did anyone see it)
+    #   outcome   OPEN | USER_CONFIRMED | VERIFIED | MISMATCH | UNKNOWN | RECOVERING | DISMISSED
+    # `check` (optional) is a device state that proves the task was done, e.g. the front door locked.
     def create_reminder(self, title: str, due: str | None, note: str | None, category: str,
-                        idempotency_key: str) -> dict[str, Any]:
+                        idempotency_key: str, due_at: str | None = None,
+                        check: dict[str, Any] | None = None) -> dict[str, Any]:
         title = (title or "").strip()
         if not title or len(title) > 80:
             raise MemoryError("Reminder title is required (max 80 chars).")
         if due is not None and not TIME_RE.match(due):
             raise MemoryError("Reminder due time must be a 24-hour time like 21:30.")
+        if check is not None and (not check.get("device_id") or not isinstance(check.get("expected"), dict)
+                                  or not check["expected"]):
+            raise MemoryError("A reminder check needs a device_id and the expected state.")
+        tz = household_tz(self.timezone)
+        if due_at is None and due is not None:
+            due_at = iso(next_occurrence(due, tz))
+        if due_at is not None and due is None:
+            due = local_hhmm(parse_iso(due_at), tz)
+        now = now_iso()
         with self.db.transaction() as conn:
             prior = conn.execute("SELECT * FROM reminders WHERE idempotency_key = ?", (idempotency_key,)).fetchone()
             if prior is not None:
                 return {**self._reminder(prior), "duplicate": True}
             rid = f"rem_{uuid.uuid4().hex[:10]}"
+            history = [{"kind": "created", "source": "create_reminder", "at": now,
+                        "summary": f"Saved “{title}”" + (f" for {due} ({parse_iso(due_at).astimezone(tz).strftime('%a %d %b')})"
+                                                         if due_at else " with no due time") + "."}]
             conn.execute(
-                "INSERT INTO reminders (id, title, due, note, category, idempotency_key, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (rid, title, due, (note or "")[:200], category[:30], idempotency_key, now_iso()),
+                "INSERT INTO reminders (id, title, due, note, category, idempotency_key, created_at, status, due_at,"
+                " check_spec, outcome, delivery, history, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?, ?)",
+                (rid, title, due, (note or "")[:200], category[:30], idempotency_key, now,
+                 "scheduled" if due_at else "unscheduled", due_at, dumps(check) if check else None,
+                 dumps({"status": "NOT_DUE" if due_at else "NO_ALERT"}), dumps(history), now),
             )
             row = conn.execute("SELECT * FROM reminders WHERE id = ?", (rid,)).fetchone()
         return {**self._reminder(row), "duplicate": False}
 
+    def update_reminder(self, reminder_id: str, changes: dict[str, Any],
+                        event: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Apply field changes and append one history entry, atomically."""
+        cols = {"status": "status", "due_at": "due_at", "due": "due", "outcome": "outcome",
+                "delivery": "delivery"}
+        with self.db.transaction() as conn:
+            row = conn.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
+            if row is None:
+                raise MemoryError(f"Unknown reminder '{reminder_id}'.")
+            history = json.loads(row["history"] or "[]")
+            now = now_iso()
+            if event:
+                history.append({"at": now, **event})
+            sets, params = ["history = ?", "updated_at = ?"], [dumps(history[-60:]), now]
+            for key, value in changes.items():
+                sets.append(f"{cols[key]} = ?")
+                params.append(dumps(value) if key == "delivery" else value)
+            conn.execute(f"UPDATE reminders SET {', '.join(sets)} WHERE id = ?", (*params, reminder_id))
+            row = conn.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
+        return self._reminder(row)
+
     def reminders(self) -> list[dict[str, Any]]:
         return [self._reminder(r) for r in self.db.query("SELECT * FROM reminders ORDER BY created_at DESC")]
+
+    def reminders_where(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        return [self._reminder(r) for r in self.db.query(f"SELECT * FROM reminders WHERE {sql}", params)]
 
     def get_reminder(self, reminder_id: str) -> dict[str, Any] | None:
         row = self.db.query_one("SELECT * FROM reminders WHERE id = ?", (reminder_id,))
@@ -326,13 +373,20 @@ class Memory:
 
     @staticmethod
     def _reminder(r) -> dict[str, Any]:
+        keys = r.keys()
+        get = (lambda k, default=None: r[k] if k in keys and r[k] is not None else default)
         return {"reminder_id": r["id"], "title": r["title"], "due": r["due"], "note": r["note"],
-                "category": r["category"], "created_at": r["created_at"], "simulated": True}
+                "category": r["category"], "created_at": r["created_at"], "simulated": True,
+                "status": get("status", "unscheduled"), "due_at": get("due_at"),
+                "check": json.loads(get("check_spec")) if get("check_spec") else None,
+                "outcome": get("outcome", "OPEN"), "delivery": json.loads(get("delivery", "{}")),
+                "history": json.loads(get("history", "[]")), "updated_at": get("updated_at", r["created_at"])}
 
     # ----- privacy controls --------------------------------------------------------------------
     def forget_everything(self) -> None:
         """Delete stored memory and history, then restore the demo defaults."""
         with self.db.transaction() as conn:
-            for table in ("preferences", "routines", "reminders", "runs", "steps", "events", "messages", "sessions"):
+            for table in ("preferences", "routines", "reminders", "timers", "runs", "steps", "events", "messages",
+                          "sessions"):
                 conn.execute(f"DELETE FROM {table}")
         self.seed()

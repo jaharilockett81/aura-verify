@@ -97,7 +97,32 @@ CREATE TABLE IF NOT EXISTS messages (
     at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS messages_session ON messages(session_id, id);
+CREATE TABLE IF NOT EXISTS timers (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    duration_s INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    ends_at TEXT,
+    remaining_s REAL NOT NULL,
+    delivery TEXT NOT NULL DEFAULT '{}',
+    history TEXT NOT NULL DEFAULT '[]',
+    idempotency_key TEXT UNIQUE,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
+
+# Columns added after the first release; applied to existing databases on startup.
+MIGRATIONS = [
+    ("reminders", "status", "TEXT NOT NULL DEFAULT 'unscheduled'"),
+    ("reminders", "due_at", "TEXT"),
+    ("reminders", "check_spec", "TEXT"),
+    ("reminders", "outcome", "TEXT NOT NULL DEFAULT 'OPEN'"),
+    ("reminders", "delivery", "TEXT NOT NULL DEFAULT '{}'"),
+    ("reminders", "history", "TEXT NOT NULL DEFAULT '[]'"),
+    ("reminders", "updated_at", "TEXT"),
+    ("sessions", "context", "TEXT"),
+]
 
 
 def now_iso() -> str:
@@ -116,6 +141,14 @@ class Database:
         with self.connect() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(SCHEMA)
+            for table, column, decl in MIGRATIONS:
+                have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+                if column not in have:
+                    try:
+                        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+                    except sqlite3.OperationalError as exc:  # another process added it first
+                        if "duplicate column" not in str(exc):
+                            raise
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:

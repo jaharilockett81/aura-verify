@@ -6,14 +6,17 @@ directly. The workflow engine never calls this module directly: it goes through 
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
+from .clock import iso, utcnow
 from .config import Settings
 from .db import Database, now_iso
 from .ledger import Ledger
 from .memory import Memory, MemoryError
 from .models import StepStatus
 from .simulator import DeviceError, DeviceUnreachable, SmartHomeSimulator
+from .timers import TimerError, TimerStore
 
 SIMULATION_NOTICE = (
     "AURA Verify household simulator. Devices, reminders and notifications are simulated; "
@@ -30,7 +33,8 @@ class HouseholdServices:
         self.settings = settings
         self.db = db or Database(settings.db_path)
         self.sim = SmartHomeSimulator(self.db, settle_ms=settings.sim_settle_ms)
-        self.memory = Memory(self.db)
+        self.memory = Memory(self.db, settings.timezone)
+        self.timers = TimerStore(self.db)
         self.ledger = ledger or Ledger(self.db)
 
     def seed(self) -> None:
@@ -46,7 +50,10 @@ class HouseholdServices:
             "routines": [{"id": r["id"], "name": r["name"], "description": r["description"],
                           "triggers": r["triggers"]} for r in self.memory.routines()],
             "devices": self.sim.list_devices(),
-            "reminders": self.memory.reminders()[:10],
+            "reminders": [{k: r[k] for k in ("reminder_id", "title", "due", "status", "outcome", "check")}
+                          for r in self.memory.reminders()[:10]],
+            "timers": [{k: t[k] for k in ("timer_id", "label", "status", "remaining_s", "remaining_text")}
+                       for t in self.timers.list(include_done=False)],
             "open_issues": self.open_issues(),
             "notice": SIMULATION_NOTICE,
         }
@@ -112,6 +119,15 @@ class HouseholdServices:
             observed = rem
             method = "reminder store lookup by id"
             extra = {}
+        elif kind == "timer":
+            timer = self.timers.get(ident)
+            if timer is None:
+                return {"target": target, "verdict": "MISMATCH", "expected": expected, "observed": None,
+                        "mismatches": [{"field": "exists", "expected": True, "observed": False}],
+                        "method": "timer store lookup", "checked_at": checked_at}
+            observed = timer
+            method = "timer store lookup by id"
+            extra = {}
         elif kind == "preference":
             pref = self.memory.get_preference(ident)
             if pref is None:
@@ -120,7 +136,7 @@ class HouseholdServices:
             method = "read-back from preference store"
             extra = {}
         else:
-            raise ServiceError("target must look like device:<id>, reminder:<id> or preference:<key>.")
+            raise ServiceError("target must look like device:<id>, reminder:<id>, timer:<id> or preference:<key>.")
 
         mismatches = [
             {"field": k, "expected": v, "observed": observed.get(k)}
@@ -191,12 +207,54 @@ class HouseholdServices:
             raise ServiceError(str(exc)) from exc
 
     def create_reminder(self, title: str, due: str | None, note: str | None, category: str,
-                        idempotency_key: str) -> dict[str, Any]:
+                        idempotency_key: str, due_in_minutes: float | None = None,
+                        check: dict[str, Any] | None = None) -> dict[str, Any]:
+        due_at = None
+        if due_in_minutes is not None:
+            if not 0 < float(due_in_minutes) <= 7 * 24 * 60:
+                raise ServiceError("due_in_minutes must be between 0 and one week.")
+            due_at = iso(utcnow() + timedelta(minutes=float(due_in_minutes)))
+            due = None
+        if check is not None:
+            device_id = check.get("device_id")
+            if device_id not in self.sim.device_ids():
+                raise ServiceError(f"Unknown device '{device_id}' in reminder check.")
         try:
-            rem = self.memory.create_reminder(title, due, note, category or "general", idempotency_key)
+            rem = self.memory.create_reminder(title, due, note, category or "general", idempotency_key,
+                                              due_at=due_at, check=check)
         except MemoryError as exc:
             raise ServiceError(str(exc)) from exc
-        return {**rem, "delivery": "SIMULATED: stored in AURA's reminder list; no push notification is sent."}
+        return {**rem, "delivery_note": "Alerts are shown and spoken only by an open AURA browser tab. Nothing is "
+                                        "pushed to a phone; if no tab is open at the due time, AURA records that "
+                                        "the alert was not delivered."}
+
+    def list_reminders(self) -> list[dict[str, Any]]:
+        return self.memory.reminders()
+
+    # ----- timers ------------------------------------------------------------------------------
+    def manage_timer(self, op: str, idempotency_key: str, timer_id: str | None = None, label: str | None = None,
+                     duration_s: int | None = None) -> dict[str, Any]:
+        try:
+            if op == "create" or op == "create_and_start":
+                if duration_s is None:
+                    raise ServiceError("duration_s is required to create a timer.")
+                return self.timers.create(label or "Timer", int(duration_s), op == "create_and_start",
+                                          idempotency_key)
+            statuses = {"start": ("created",), "resume": ("paused",), "pause": ("running",),
+                        "cancel": ("created", "running", "paused")}.get(op)
+            if statuses is None:
+                raise ServiceError("op must be create, create_and_start, start, pause, resume or cancel.")
+            timer = self.timers.resolve(timer_id or label, statuses)
+            if op in ("start", "resume"):
+                return self.timers.start(timer["timer_id"])
+            if op == "pause":
+                return self.timers.pause(timer["timer_id"])
+            return self.timers.cancel(timer["timer_id"])
+        except TimerError as exc:
+            raise ServiceError(str(exc)) from exc
+
+    def list_timers(self, include_done: bool = False) -> list[dict[str, Any]]:
+        return self.timers.list(include_done=include_done)
 
     # ----- execution ledger --------------------------------------------------------------------
     def execution_status(self, run_id: str) -> dict[str, Any]:

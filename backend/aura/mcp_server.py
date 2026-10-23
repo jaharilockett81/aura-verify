@@ -77,7 +77,7 @@ def build_mcp_server(services: HouseholdServices) -> MCPServer:
     def verify_action(target: str, expected: dict[str, Any]) -> dict[str, Any]:
         """Independently check that `target` is in the `expected` state.
 
-        target: 'device:<device_id>', 'reminder:<reminder_id>' or 'preference:<key>'.
+        target: 'device:<device_id>', 'reminder:<reminder_id>', 'timer:<timer_id>' or 'preference:<key>'.
         Returns verdict VERIFIED, MISMATCH or UNKNOWN with the observed evidence.
         """
         return _call(services.verify_action, target, expected)
@@ -108,9 +108,37 @@ def build_mcp_server(services: HouseholdServices) -> MCPServer:
 
     @mcp.tool(annotations=WRITE_IDEMPOTENT)
     def create_reminder(title: str, idempotency_key: str, due: str | None = None, note: str | None = None,
-                        category: str = "general") -> dict[str, Any]:
-        """Store a household reminder (simulated delivery). `due` is a 24-hour time such as 21:30."""
-        return _call(services.create_reminder, title, due, note, category, idempotency_key)
+                        category: str = "general", due_in_minutes: float | None = None,
+                        check: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Store a household reminder. `due` is a 24-hour time such as 21:30, or use `due_in_minutes`.
+
+        `check` = {"device_id", "expected"} names a device state that proves the task was done (e.g. the front
+        door locked); AURA verifies it independently when the reminder is due or marked done. Alerts appear only
+        in an open AURA tab; nothing is pushed to a phone.
+        """
+        return _call(services.create_reminder, title, due, note, category, idempotency_key, due_in_minutes,
+                     check)
+
+    @mcp.tool(annotations=READ)
+    def list_reminders() -> dict[str, Any]:
+        """List reminders with status, delivery status (was an alert actually shown?) and verified outcome."""
+        return {"reminders": _call(services.list_reminders)}
+
+    @mcp.tool(annotations=WRITE_IDEMPOTENT)
+    def manage_timer(op: str, idempotency_key: str, timer_id: str | None = None, label: str | None = None,
+                     duration_s: int | None = None) -> dict[str, Any]:
+        """Create or control a local AURA timer (no device is involved).
+
+        op: create (not started), create_and_start, start, pause, resume, cancel. Identify an existing timer by
+        timer_id or label; if omitted, the only timer in a suitable state is used, otherwise an error lists them.
+        Verify with verify_action target 'timer:<id>'.
+        """
+        return _call(services.manage_timer, op, idempotency_key, timer_id, label, duration_s)
+
+    @mcp.tool(annotations=READ)
+    def list_timers(include_done: bool = False) -> dict[str, Any]:
+        """List timers with live remaining time. Finished timers record whether their alert was delivered."""
+        return {"timers": _call(services.list_timers, include_done)}
 
     @mcp.tool(annotations=READ)
     def get_execution_status(run_id: str) -> dict[str, Any]:

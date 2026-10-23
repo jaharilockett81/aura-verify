@@ -24,7 +24,7 @@ PLAN_TOOL = {
                 "properties": {
                     "intent": {"type": "string",
                                "enum": ["routine", "device_control", "preference_update", "query", "clarify",
-                                        "unknown"]},
+                                        "unknown", "timer"]},
                     "summary": {"type": "string", "description": "Short title for the plan (max 80 chars)."},
                     "spoken_response": {"type": "string",
                                         "description": "One or two short sentences to speak aloud. Never claim an "
@@ -42,7 +42,10 @@ PLAN_TOOL = {
                             "properties": {
                                 "action": {"type": "string",
                                            "enum": ["read_device", "set_device", "create_reminder",
-                                                    "update_preference"]},
+                                                    "update_preference", "timer"]},
+                                "timer": {"type": "object",
+                                          "description": "For action timer: {op: create|create_and_start|start|"
+                                                         "pause|resume|cancel|check, label?, duration_s?}"},
                                 "title": {"type": "string"},
                                 "rationale": {"type": "string"},
                                 "device_id": {"type": "string"},
@@ -77,6 +80,8 @@ Rules:
 - For direct device commands use set_device with attributes allowed for that device. For questions use read_device.
 - If required information is missing (e.g. no temperature given), use intent "clarify" with a short question.
 - Only use device ids, attribute names and preference keys listed in the context. Never invent devices.
+- Several actions in one request become one plan with one action each; never drop part of a request.
+- Timers use action "timer" (intent "timer", or "query" for checking time left).
 - spoken_response must not claim anything has happened yet.
 """
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .models import PlannedAction, Risk
+from .models import TIMER_OPS, PlannedAction, Risk
 
 
 class PlanValidationError(Exception):
@@ -27,6 +27,10 @@ def assess_risk(action: PlannedAction, device_type: str | None) -> tuple[Risk, s
         return Risk.ROUTINE, "Adds a reminder to AURA's list (simulated delivery)."
     if action.action == "update_preference":
         return Risk.ROUTINE, "Updates your saved preferences; editable or reversible in Memory."
+    if action.action == "timer":
+        if (action.timer or {}).get("op") == "check":
+            return Risk.READ_ONLY, "Read-only: checks a timer."
+        return Risk.ROUTINE, "A local AURA timer: changes nothing in the home and can be cancelled any time."
     return Risk.SENSITIVE, "Unrecognised action type."
 
 
@@ -66,4 +70,17 @@ def validate_actions(actions: list[PlannedAction], devices: list[dict[str, Any]]
         elif a.action == "update_preference":
             if a.preference_key not in preference_keys:
                 raise PlanValidationError(f"Unknown preference '{a.preference_key}'.")
+        elif a.action == "timer":
+            t = a.timer or {}
+            if t.get("op") not in TIMER_OPS:
+                raise PlanValidationError(f"Unknown timer operation '{t.get('op')}'.")
+            if t["op"] in ("create", "create_and_start"):
+                d = t.get("duration_s")
+                if isinstance(d, bool) or not isinstance(d, int) or not 1 <= d <= 24 * 3600:
+                    raise PlanValidationError("A timer needs a length between 1 second and 24 hours.")
+        if a.action == "create_reminder" and a.reminder and a.reminder.get("check"):
+            chk = a.reminder["check"]
+            if chk.get("device_id") not in by_id:
+                raise PlanValidationError(f"Unknown device '{chk.get('device_id')}' in reminder check.")
+            _check_attributes(by_id[chk["device_id"]], chk.get("expected") or {})
     return by_id

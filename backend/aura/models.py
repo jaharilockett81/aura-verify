@@ -58,7 +58,8 @@ class Assurance(StrEnum):
     FAILED = "FAILED"  # evidence shows the outcome did not happen
 
 
-ActionKind = Literal["read_device", "set_device", "create_reminder", "update_preference"]
+ActionKind = Literal["read_device", "set_device", "create_reminder", "update_preference", "timer"]
+TIMER_OPS = ("create", "create_and_start", "start", "pause", "resume", "cancel", "check")
 
 
 class PlannedAction(BaseModel):
@@ -72,11 +73,12 @@ class PlannedAction(BaseModel):
     reminder: dict[str, Any] | None = None
     preference_key: str | None = None
     preference_value: Any = None
+    timer: dict[str, Any] | None = None  # {"op", "label"?, "duration_s"?}
     provenance: str | None = None  # e.g. "from saved preference bedtime_temperature_f"
 
 
 class PlanDraft(BaseModel):
-    intent: Literal["routine", "device_control", "preference_update", "query", "clarify", "unknown"]
+    intent: Literal["routine", "device_control", "preference_update", "query", "clarify", "unknown", "timer"]
     summary: str
     spoken_response: str
     routine_id: str | None = None
@@ -86,6 +88,8 @@ class PlanDraft(BaseModel):
     # Explicit values the user gave for this run only, applied on top of a routine's saved preferences,
     # e.g. {"thermostat": {"setpoint_f": 75}}. Saved preferences are not changed.
     overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # A correction ("actually, make it 74") replaces a plan that hasn't run yet.
+    replaces_run_id: str | None = None
     planner: str = "local"
     planner_detail: str = ""
 

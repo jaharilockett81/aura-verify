@@ -26,6 +26,11 @@ class EventBus:
         self._subscribers.add(q)
         return q
 
+    @property
+    def subscriber_count(self) -> int:
+        """Open live-update streams, i.e. AURA browser tabs that could show an alert right now."""
+        return len(self._subscribers)
+
     def unsubscribe(self, q: asyncio.Queue) -> None:
         self._subscribers.discard(q)
 
@@ -143,6 +148,14 @@ class Ledger:
         with self.db.transaction() as conn:
             conn.execute("UPDATE sessions SET pending = ? WHERE id = ?",
                          (dumps(pending) if pending else None, session_id))
+
+    def session_context(self, session_id: str) -> dict[str, Any]:
+        row = self.db.query_one("SELECT context FROM sessions WHERE id = ?", (session_id,))
+        return json.loads(row["context"]) if row and row["context"] else {}
+
+    def set_session_context(self, session_id: str, context: dict[str, Any]) -> None:
+        with self.db.transaction() as conn:
+            conn.execute("UPDATE sessions SET context = ? WHERE id = ?", (dumps(context), session_id))
 
     def add_message(self, session_id: str, role: str, text: str, run_id: str | None = None,
                     meta: dict[str, Any] | None = None) -> dict[str, Any]:

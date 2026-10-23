@@ -132,6 +132,7 @@ class WorkflowEngine:
         context = ctx_result.data
         self._device_types = {d["device_id"]: d["type"] for d in context.get("devices", [])}
 
+        context["session"] = self._session_summary(session_id)
         pending = self.ledger.session_pending(session_id)
         draft = await self._plan(utterance, context, pending)
         self.ledger.set_session_pending(session_id, None)
@@ -166,20 +167,86 @@ class WorkflowEngine:
             text = f"I won't run that plan because it failed validation: {exc}"
             return {"message": self.ledger.add_message(session_id, "assistant", text, meta=meta), "run": None}
 
+        if draft.replaces_run_id:
+            self._supersede(draft.replaces_run_id)
+        run = self._start_run(session_id, utterance, draft, actions)
+        meta["run_id"] = run.id
+        reply = self.ledger.add_message(session_id, "assistant", draft.spoken_response, run_id=run.id, meta=meta)
+        return {"message": reply, "run": run.model_dump(mode="json")}
+
+    def _start_run(self, session_id: str, utterance: str, draft: PlanDraft, actions: list[PlannedAction]) -> Run:
         run = self._compile(session_id, utterance, draft, actions)
         self.ledger.save_run(run)
         self.ledger.emit(run.id, "run.created", {"status": run.status, "summary": run.summary,
                                                  "planner": run.planner, "steps": len(run.steps)})
-        auto = all(s.risk == Risk.READ_ONLY for s in run.steps) or draft.intent == "preference_update"
+        timers_only = all(s.action == "timer" for s in run.steps)
+        auto = all(s.risk == Risk.READ_ONLY for s in run.steps) or draft.intent == "preference_update" or timers_only
         if auto:
-            reason = ("Read-only plan: runs without approval." if draft.intent != "preference_update"
-                      else "You stated this preference directly, which authorizes saving it. You can undo it in Memory.")
+            if draft.intent == "preference_update":
+                reason = "You stated this preference directly, which authorizes saving it. You can undo it in Memory."
+            elif timers_only and not all(s.risk == Risk.READ_ONLY for s in run.steps):
+                reason = "Timers only change AURA's own timer list, so they run without approval."
+            else:
+                reason = "Read-only plan: runs without approval."
             self._authorize(run, actor="policy", reason=reason)
             self.ledger.save_run(run)
             self._spawn(run.id)
-        meta["run_id"] = run.id
-        reply = self.ledger.add_message(session_id, "assistant", draft.spoken_response, run_id=run.id, meta=meta)
-        return {"message": reply, "run": run.model_dump(mode="json")}
+        ctx = self.ledger.session_context(session_id)
+        devices = [s.target.split(":", 1)[1] for s in run.steps if s.target.startswith("device:")]
+        ctx.update({"last_run_id": run.id, "last_intent": draft.intent})
+        if devices:
+            ctx["last_devices"] = list(dict.fromkeys(devices))
+        self.ledger.set_session_context(session_id, ctx)
+        return run
+
+    async def create_run_from_actions(self, session_id: str, utterance: str, summary: str,
+                                      actions: list[PlannedAction], spoken: str) -> Run:
+        """Plan a run from actions AURA itself proposes (e.g. fixing a reminder). Goes through the same validation,
+        policy and approval as a spoken request."""
+        ctx_result = await self.gateway.call("get_household_context", {})
+        if not ctx_result.ok:
+            raise EngineError(f"Household tools unavailable: {ctx_result.error}")
+        context = ctx_result.data
+        self._device_types = {d["device_id"]: d["type"] for d in context.get("devices", [])}
+        try:
+            validate_actions(actions, context.get("devices", []), {p["key"] for p in context.get("preferences", [])})
+        except PlanValidationError as exc:
+            raise EngineError(f"Plan failed validation: {exc}") from exc
+        draft = PlanDraft(intent="device_control", summary=summary, spoken_response=spoken, planner="aura",
+                          planner_detail="Proposed by AURA from a reminder check (not a language model)")
+        run = self._start_run(session_id, utterance, draft, actions)
+        self.ledger.add_message(session_id, "assistant", spoken, run_id=run.id,
+                                meta={"run_id": run.id, "planner": "aura", "intent": "device_control"})
+        return run
+
+    def _supersede(self, run_id: str) -> None:
+        """A correction replaces a plan that is still only a preview. Nothing of it ran, so nothing is undone."""
+        run = self.ledger.get_run(run_id)
+        if run is None or run.status != RunStatus.AWAITING_APPROVAL:
+            return
+        for s in run.steps:
+            if s.status not in TERMINAL_STEP_STATUSES:
+                s.status = StepStatus.CANCELLED
+                s.finished_at = now_iso()
+        run.status = RunStatus.CANCELLED
+        run.finished_at = now_iso()
+        run.final_report = "Replaced by your correction before anything ran. Nothing was sent."
+        self.ledger.save_run(run)
+        self.ledger.emit(run.id, "run.finished", {"status": run.status, "report": run.final_report})
+
+    def _session_summary(self, session_id: str) -> dict[str, Any]:
+        """What the planner may know about this conversation, for follow-ups and corrections."""
+        ctx = self.ledger.session_context(session_id)
+        last = self.ledger.get_run(ctx["last_run_id"]) if ctx.get("last_run_id") else None
+        out: dict[str, Any] = {"last_devices": ctx.get("last_devices", []), "last_intent": ctx.get("last_intent")}
+        if last is not None:
+            out["last_run"] = {
+                "run_id": last.id, "status": last.status, "summary": last.summary, "intent": last.intent,
+                "routine_id": last.routine_id, "final_report": last.final_report, "utterance": last.utterance,
+                "steps": [{"title": s.title, "status": s.status, "action": s.action, "target": s.target,
+                           "params": s.params} for s in last.steps],
+            }
+        return out
 
     async def _plan(self, utterance: str, context: dict[str, Any], pending: dict[str, Any] | None) -> PlanDraft:
         if self.planner is self.fallback or isinstance(self.planner, LocalPlanner):
@@ -206,7 +273,16 @@ class WorkflowEngine:
             elif a.action == "create_reminder":
                 target = "reminder"
                 params = {"reminder": a.reminder}
-                expected = {"title": (a.reminder or {}).get("title"), "due": (a.reminder or {}).get("due")}
+                expected = {"title": (a.reminder or {}).get("title")}
+                if (a.reminder or {}).get("due") is not None or not (a.reminder or {}).get("due_in_minutes"):
+                    expected["due"] = (a.reminder or {}).get("due")
+            elif a.action == "timer":
+                t = a.timer or {}
+                target = "timer:pending"
+                params = {"timer": t}
+                expected = {} if t.get("op") == "check" else {"status": {
+                    "create": "created", "create_and_start": "running", "start": "running", "resume": "running",
+                    "pause": "paused", "cancel": "cancelled"}[t["op"]]}
             else:
                 target = f"preference:{a.preference_key}"
                 params = {"key": a.preference_key, "value": a.preference_value}
@@ -435,6 +511,60 @@ class WorkflowEngine:
             await self._exec_reminder(run, step)
         elif step.action == "update_preference":
             await self._exec_preference(run, step)
+        elif step.action == "timer":
+            await self._exec_timer(run, step)
+
+    async def _exec_timer(self, run: Run, step: Step) -> None:
+        t = step.params["timer"]
+        self._set(run, step, StepStatus.RUNNING)
+        step.attempts = 1
+        if t["op"] == "check":
+            res = await self._tool(run, step, "list_timers", {"include_done": False})
+            if not res.ok:
+                step.error = res.error
+                self._set(run, step, StepStatus.UNKNOWN, Assurance.UNKNOWN)
+                return
+            timers = res.data["timers"]
+            if t.get("label"):
+                timers = [x for x in timers if t["label"].lower() in x["label"].lower()]
+            if not timers:
+                text = "No timers are running." if not t.get("label") else f"There's no {t['label']} timer running."
+            else:
+                text = " ".join(f"{x['label']}: {x['remaining_text']} left" +
+                                (" (paused)." if x["status"] == "paused" else
+                                 " (not started)." if x["status"] == "created" else ".") for x in timers)
+            step.result = {"timers": timers}
+            self._evidence(run, step, "state_read", "list_timers", text, res.data)
+            self._set(run, step, StepStatus.VERIFIED, Assurance.VERIFIED)
+            return
+        args = {"op": t["op"], "idempotency_key": step.idempotency_key}
+        for key in ("label", "duration_s", "timer_id"):
+            if t.get(key) is not None:
+                args[key] = t[key]
+        res = await self._tool(run, step, "manage_timer", args)
+        if not res.ok:
+            step.error = res.error
+            self._set(run, step, StepStatus.UNKNOWN if res.timed_out else StepStatus.FAILED,
+                      Assurance.UNKNOWN if res.timed_out else Assurance.FAILED)
+            return
+        step.assurance = Assurance.ACCEPTED
+        step.target = f"timer:{res.data['timer_id']}"
+        self._evidence(run, step, "ack", "manage_timer",
+                       f"Timer service accepted “{t['op'].replace('_', ' ')}” for {res.data['label']} "
+                       "(not yet verified).", res.data)
+        self._set(run, step, StepStatus.VERIFYING)
+        ver = await self._tool(run, step, "verify_action", {"target": step.target, "expected": step.expected})
+        if ver.ok and ver.data["verdict"] == "VERIFIED":
+            obs = ver.data["observed"]
+            self._evidence(run, step, "verification", "verify_action",
+                           f"Read back: {obs['label']} is {obs['status']} with {obs['remaining_text']} left.",
+                           ver.data)
+            self._set(run, step, StepStatus.VERIFIED, Assurance.VERIFIED)
+        else:
+            step.error = "The timer did not read back in the expected state."
+            self._evidence(run, step, "verification", "verify_action", step.error,
+                           ver.data if ver.ok else {"error": ver.error})
+            self._set(run, step, StepStatus.FAILED, Assurance.FAILED)
 
     async def _exec_read(self, run: Run, step: Step) -> None:
         self._set(run, step, StepStatus.RUNNING)
@@ -533,9 +663,13 @@ class WorkflowEngine:
     async def _exec_reminder(self, run: Run, step: Step) -> None:
         self._set(run, step, StepStatus.RUNNING)
         rem = step.params["reminder"]
-        res = await self._tool(run, step, "create_reminder", {
-            "title": rem["title"], "due": rem.get("due"), "note": rem.get("note"),
-            "category": rem.get("category", "general"), "idempotency_key": step.idempotency_key})
+        args = {"title": rem["title"], "due": rem.get("due"), "note": rem.get("note"),
+                "category": rem.get("category", "general"), "idempotency_key": step.idempotency_key}
+        if rem.get("due_in_minutes"):
+            args["due_in_minutes"] = rem["due_in_minutes"]
+        if rem.get("check"):
+            args["check"] = rem["check"]
+        res = await self._tool(run, step, "create_reminder", args)
         step.attempts = 1
         if not res.ok:
             step.error = res.error
@@ -544,14 +678,16 @@ class WorkflowEngine:
             return
         step.assurance = Assurance.ACCEPTED
         self._evidence(run, step, "ack", "create_reminder",
-                       f"Reminder stored as {res.data['reminder_id']} (delivery is simulated).", res.data)
+                       f"Reminder stored as {res.data['reminder_id']} (alerts appear only in an open AURA tab).",
+                       res.data)
         step.target = f"reminder:{res.data['reminder_id']}"
         self._set(run, step, StepStatus.VERIFYING)
         ver = await self._tool(run, step, "verify_action", {"target": step.target, "expected": step.expected})
         if ver.ok and ver.data["verdict"] == "VERIFIED":
+            obs = ver.data["observed"]
+            check = " It will be checked against the device when due." if obs.get("check") else ""
             self._evidence(run, step, "verification", "verify_action",
-                           f"Read back reminder “{ver.data['observed']['title']}” at {ver.data['observed']['due']}.",
-                           ver.data)
+                           f"Read back reminder “{obs['title']}” at {obs['due'] or 'no set time'}.{check}", ver.data)
             self._set(run, step, StepStatus.VERIFIED, Assurance.VERIFIED)
         else:
             step.error = "Reminder could not be read back after saving."

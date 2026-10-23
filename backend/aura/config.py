@@ -45,6 +45,8 @@ class Settings:
     max_attempts: int
     auto_retry_limit: int
     frontend_dist: Path
+    timezone: str = ""  # IANA name for reminder due times; empty = this machine's local time zone
+    delivery_ack_s: float = 20.0  # how long an open tab has to confirm it showed an alert
     cors_origins: list[str] = field(default_factory=list)
 
 
@@ -70,6 +72,8 @@ def load_settings() -> Settings:
         max_attempts=int(os.getenv("AURA_MAX_ATTEMPTS", "3")),
         auto_retry_limit=int(os.getenv("AURA_AUTO_RETRY_LIMIT", "1")),
         frontend_dist=Path(os.getenv("AURA_FRONTEND_DIST", str(root / "frontend" / "dist"))),
+        timezone=os.getenv("AURA_TZ", ""),
+        delivery_ack_s=float(os.getenv("AURA_DELIVERY_ACK_S", "20")),
         cors_origins=[o for o in os.getenv("AURA_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o],
     )
 
