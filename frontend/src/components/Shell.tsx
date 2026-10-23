@@ -5,6 +5,7 @@ import { Activity, Clock3, Database, FlaskConical, House, Settings, X } from 'lu
 import { useAura } from '../lib/aura'
 import { cx } from './ui'
 import { DemoDrawer } from './DemoDrawer'
+import { AlertCenter } from './Alerts'
 
 const NAV = [
   { to: '/', label: 'Home', icon: House, end: true },
@@ -258,6 +259,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </nav>
 
       <DemoDrawer />
+      <AlertCenter />
       <SettingsSheet open={settingsOpen} onClose={closeSettings} />
 
       <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex flex-col items-center gap-2 px-4 lg:bottom-6" aria-live="polite">

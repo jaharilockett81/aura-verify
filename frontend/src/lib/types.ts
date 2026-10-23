@@ -132,13 +132,55 @@ export interface Routine {
   updated_at: string
 }
 
+export type ReminderStatus = 'unscheduled' | 'scheduled' | 'due' | 'closed'
+export type DeliveryStatus = 'NOT_DUE' | 'NO_ALERT' | 'PENDING' | 'DELIVERED_IN_APP' | 'UNCONFIRMED' | 'NOT_DELIVERED'
+export type ReminderOutcome = 'OPEN' | 'USER_CONFIRMED' | 'VERIFIED' | 'MISMATCH' | 'UNKNOWN' | 'RECOVERING' | 'DISMISSED'
+
+export interface Delivery {
+  status: DeliveryStatus
+  at?: string
+  detail?: string
+  spoken?: boolean
+  deadline?: string
+}
+
+export interface HistoryEntry {
+  at: string
+  kind?: string
+  source?: string
+  summary: string
+  verdict?: string
+  run_id?: string
+}
+
 export interface Reminder {
   reminder_id: string
   title: string
   due: string | null
+  due_at: string | null
   note: string | null
   category: string
   created_at: string
+  updated_at: string
+  status: ReminderStatus
+  outcome: ReminderOutcome
+  delivery: Delivery
+  check: { device_id: string; expected: Record<string, unknown> } | null
+  history: HistoryEntry[]
+}
+
+export interface Timer {
+  timer_id: string
+  label: string
+  duration_s: number
+  status: 'created' | 'running' | 'paused' | 'finished' | 'cancelled'
+  ends_at: string | null
+  remaining_s: number
+  remaining_text: string
+  delivery: Delivery
+  history: HistoryEntry[]
+  created_at: string
+  updated_at: string
 }
 
 export interface Health {

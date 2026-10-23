@@ -4,7 +4,7 @@ import { ArrowUp, Loader2, Mic, MicOff, RefreshCw, ShieldCheck } from 'lucide-re
 import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
-import { speak, useSpeechInput } from '../lib/speech'
+import { useSpeechInput } from '../lib/speech'
 import type { Message, Run } from '../lib/types'
 import { RUN_STATUS_LABEL, runTone } from '../lib/format'
 import { AuraOrb, useOrbState } from './Orb'
@@ -14,17 +14,15 @@ import { useMediaQuery } from '../lib/useMediaQuery'
 import { Badge, Button, ErrorNote, StatusIcon, cx } from './ui'
 
 export function useConversation() {
-  const { sessionId, ensureSession, newSession, voiceReplies, toast } = useAura()
+  const { sessionId, ensureSession, newSession, toast } = useAura()
   const [messages, setMessages] = useState<Message[]>([])
   const [thinking, setThinking] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const spokenUpTo = useRef<number>(Number.MAX_SAFE_INTEGER)
 
   const load = useCallback(async (sid: string) => {
     try {
       const { messages } = await api.messages(sid)
       setMessages(messages)
-      if (spokenUpTo.current === Number.MAX_SAFE_INTEGER) spokenUpTo.current = messages.at(-1)?.id ?? 0
     } catch (e: any) {
       setError(e.message)
     }
@@ -47,16 +45,6 @@ export function useConversation() {
     // Belt and braces: re-read the transcript when any run finishes, in case an event was missed.
     if (e.type === 'run.finished' && sid) load(sid)
   })
-
-  useEffect(() => {
-    const last = messages.at(-1)
-    if (voiceReplies && last && last.role === 'assistant' && last.id > spokenUpTo.current) {
-      spokenUpTo.current = last.id
-      speak(last.text)
-    } else if (last && last.id > spokenUpTo.current) {
-      spokenUpTo.current = last.id
-    }
-  }, [messages, voiceReplies])
 
   const send = useCallback(
     async (text: string): Promise<Run | null> => {

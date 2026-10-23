@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { BriefcaseBusiness, ChevronRight, House, Moon, Thermometer, Zap } from 'lucide-react'
 import { CenteredAssistant, useConversation } from '../components/Assistant'
 import type { Chip } from '../components/Assistant'
+import { TimersCard } from '../components/Alerts'
 import { DeviceGrid } from '../components/Devices'
 import { StatusIcon, cx } from '../components/ui'
 import { api } from '../lib/api'
@@ -89,7 +90,8 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-1 gap-7 lg:mt-10 lg:grid-cols-2 lg:gap-8">
-      <section aria-labelledby="home-title" className="mt-7 lg:mt-0">
+      <div className="mt-7 space-y-7 lg:mt-0">
+      <section aria-labelledby="home-title">
         <div className="mb-3 flex items-baseline justify-between px-1">
           <h2 id="home-title" className="text-[16px] font-semibold tracking-tight lg:text-[20px]">
             Household status
@@ -100,6 +102,8 @@ export default function Home() {
         </div>
         <DeviceGrid all={allDevices} />
       </section>
+      <TimersCard />
+      </div>
 
       <section aria-labelledby="activity-title" className="lg:mt-0">
         <div className="mb-3 flex items-baseline justify-between px-1">

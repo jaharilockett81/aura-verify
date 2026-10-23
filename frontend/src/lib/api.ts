@@ -1,4 +1,4 @@
-import type { Device, Health, Message, Preference, Reminder, Routine, Run, AuraEvent } from './types'
+import type { Device, Health, Message, Preference, Reminder, Routine, Run, AuraEvent, Timer } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -59,6 +59,18 @@ export const api = {
     req<Preference>(`/api/memory/preferences/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
   resetPreference: (key: string) => post<Preference>(`/api/memory/preferences/${key}/reset`),
   deleteReminder: (id: string) => req<{ deleted: string }>(`/api/memory/reminders/${id}`, { method: 'DELETE' }),
+  reminders: () => req<{ reminders: Reminder[]; tabs_open: number }>('/api/reminders'),
+  reminderDelivered: (id: string, spoken: boolean) => post<Reminder>(`/api/reminders/${id}/delivered`, { spoken }),
+  reminderDone: (id: string) => post<Reminder>(`/api/reminders/${id}/done`),
+  reminderSnooze: (id: string, minutes = 10) => post<Reminder>(`/api/reminders/${id}/snooze`, { minutes }),
+  reminderDismiss: (id: string) => post<Reminder>(`/api/reminders/${id}/dismiss`),
+  reminderFix: (id: string, sessionId: string | null) =>
+    post<{ reminder: Reminder; run: Run }>(`/api/reminders/${id}/fix`, { session_id: sessionId }),
+  fireReminder: (id: string) => post<Reminder>(`/api/demo/reminders/${id}/fire`),
+  timers: () => req<{ timers: Timer[] }>('/api/timers'),
+  timerOp: (id: string, op: 'start' | 'pause' | 'resume' | 'cancel') =>
+    post<{ timer: Timer; verdict: string }>(`/api/timers/${id}/${op}`),
+  timerDelivered: (id: string, spoken: boolean) => post<Timer>(`/api/timers/${id}/delivered`, { spoken }),
   forget: () => post<{ ok: boolean; message: string }>('/api/memory/forget'),
   faults: () =>
     req<{ active: Record<string, Record<string, unknown>>; kinds: Record<string, string> }>('/api/demo/faults'),

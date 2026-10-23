@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from './api'
+import { speakAsync } from './speech'
 import type { AuraEvent, Health } from './types'
 
 type Listener = (e: AuraEvent) => void
@@ -50,6 +51,11 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [demoOpen, setDemoOpen] = useState(false)
   const listeners = useRef(new Set<Listener>())
+  // Read inside the long-lived event stream handler without reconnecting it.
+  const voiceRef = useRef(voiceReplies)
+  const sessionRef = useRef(sessionId)
+  voiceRef.current = voiceReplies
+  sessionRef.current = sessionId
 
   const refreshHealth = useCallback(() => {
     api
@@ -75,6 +81,12 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       try {
         const event = JSON.parse(msg.data) as AuraEvent
         listeners.current.forEach((fn) => fn(event))
+        // Voice replies: speak AURA's own messages in this conversation as they arrive, on any page. These are
+        // the same texts shown in the transcript (plans, questions, verified results), never a separate script.
+        const m = event.type === 'message' ? (event.data as any) : null
+        if (voiceRef.current && m && m.role === 'assistant' && m.session_id === sessionRef.current) {
+          void speakAsync(m.text, { interrupt: false })
+        }
       } catch {
         /* ignore malformed */
       }

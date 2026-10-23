@@ -73,10 +73,28 @@ export function useSpeechInput(onFinal: (text: string) => void) {
 }
 
 export function speak(text: string) {
-  if (!('speechSynthesis' in window)) return
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.rate = 1.02
-  u.pitch = 1
-  window.speechSynthesis.speak(u)
+  void speakAsync(text)
+}
+
+/** Speak with browser speech synthesis. Resolves true only if the browser actually started speaking. */
+export function speakAsync(text: string, { interrupt = true }: { interrupt?: boolean } = {}): Promise<boolean> {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return Promise.resolve(false)
+  return new Promise((resolve) => {
+    let settled = false
+    const done = (ok: boolean) => {
+      if (!settled) {
+        settled = true
+        resolve(ok)
+      }
+    }
+    if (interrupt) window.speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(text)
+    u.rate = 1.02
+    u.pitch = 1
+    u.onstart = () => done(true)
+    u.onerror = () => done(false)
+    window.speechSynthesis.speak(u)
+    // No voices, muted tab or a blocked autoplay policy: report "not spoken" rather than assume it was.
+    window.setTimeout(() => done(false), 2500)
+  })
 }

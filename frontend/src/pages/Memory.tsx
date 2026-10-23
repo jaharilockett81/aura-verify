@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, BedDouble, BriefcaseBusiness, CalendarClock, ChevronRight, Clock, Download, House, MessageSquareText, MoonStar, PawPrint, RotateCcw, ShieldCheck, Sun, Thermometer, Trash2, UserRound } from 'lucide-react'
+import { Bell, BedDouble, FlaskConical, Wrench, BriefcaseBusiness, CalendarClock, ChevronRight, Clock, Download, House, MessageSquareText, MoonStar, PawPrint, RotateCcw, ShieldCheck, Sun, Thermometer, Trash2, UserRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Badge, Button, ErrorNote, Expander, Segmented, SectionTitle, cx } from '../components/ui'
 import { api } from '../lib/api'
 import { useAura, useAuraEvents } from '../lib/aura'
+import { DELIVERY, HistoryList, OUTCOME } from '../components/Alerts'
 import { timeAgo } from '../lib/format'
 import type { Preference, Reminder, Routine } from '../lib/types'
 
@@ -224,6 +225,97 @@ function RoutineRow({ routine, prefs }: { routine: Routine; prefs: Preference[] 
   )
 }
 
+function ReminderRow({ reminder: r, onChanged, onDelete }: { reminder: Reminder; onChanged: () => void; onDelete: () => void }) {
+  const { toast, sessionId, ensureSession } = useAura()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+  const outcome = OUTCOME[r.outcome]
+  const delivery = DELIVERY[r.delivery.status]
+  const fixable = !!r.check && (r.outcome === 'MISMATCH' || r.outcome === 'UNKNOWN')
+  async function act(key: string, fn: () => Promise<unknown>) {
+    setBusy(key)
+    try {
+      await fn()
+      onChanged()
+    } catch (e: any) {
+      toast(e.message, 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+  const when = r.due ? `${r.due}${r.due_at ? ` · ${new Date(r.due_at).toLocaleDateString(undefined, { weekday: 'short' })}` : ''}` : 'No time set'
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-label={`Reminder ${r.title}`}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-white/40"
+      >
+        <span className="grid size-9 shrink-0 place-items-center" aria-hidden>
+          <Bell className="size-[22px] text-[#7c6fa6]" strokeWidth={1.5} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-medium lg:text-[16px]">
+            {r.title}
+            <span className="font-normal text-ink-mute"> · {when}</span>
+          </span>
+          <span className="mt-1 flex flex-wrap gap-1.5">
+            {(r.check || r.outcome !== 'OPEN') && <Badge tone={outcome.tone}>{outcome.label}</Badge>}
+            <Badge tone={delivery?.tone ?? 'mute'}>{delivery?.label ?? r.delivery.status}</Badge>
+            {r.check && r.outcome === 'OPEN' && <Badge tone="lav">Checked by device</Badge>}
+          </span>
+        </span>
+        <ChevronRight className={cx('size-4 shrink-0 text-ink-mute transition-transform duration-200', open && 'rotate-90')} aria-hidden />
+      </button>
+      <Expander open={open}>
+        <div className="space-y-3 px-4 pb-4 pl-16">
+          <p className="text-[12px] text-ink-mute">
+            {outcome.hint} {r.delivery.detail ?? ''}
+          </p>
+          <HistoryList entries={r.history} label={`Evidence for ${r.title}`} />
+          <div className="flex flex-wrap gap-2">
+            {fixable && (
+              <Button size="sm" variant="primary" busy={busy === 'fix'} onClick={() => act('fix', async () => {
+                const sid = sessionId ?? (await ensureSession())
+                const res = await api.reminderFix(r.reminder_id, sid)
+                navigate(`/runs/${res.run.id}`)
+              })}>
+                <Wrench className="size-3.5" /> Plan a fix
+              </Button>
+            )}
+            {r.status === 'due' && (
+              <Button size="sm" variant="secondary" busy={busy === 'done'} onClick={() => act('done', () => api.reminderDone(r.reminder_id))}>
+                {r.check ? 'I did it, check' : 'Done'}
+              </Button>
+            )}
+            {(r.status === 'due' || r.status === 'scheduled') && (
+              <Button size="sm" variant="ghost" busy={busy === 'snooze'} onClick={() => act('snooze', () => api.reminderSnooze(r.reminder_id, 10))}>
+                Snooze 10 min
+              </Button>
+            )}
+            {r.status !== 'closed' && (
+              <Button size="sm" variant="ghost" busy={busy === 'dismiss'} onClick={() => act('dismiss', () => api.reminderDismiss(r.reminder_id))}>
+                Dismiss
+              </Button>
+            )}
+            {(r.status === 'scheduled' || r.status === 'unscheduled') && (
+              <Button size="sm" variant="warn" busy={busy === 'fire'} onClick={() => act('fire', () => api.fireReminder(r.reminder_id))} title="Demo control: make this reminder due now">
+                <FlaskConical className="size-3.5" /> Make due now (demo)
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={onDelete} aria-label={`Delete reminder ${r.title}`}>
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </Expander>
+    </li>
+  )
+}
+
 type Filter = 'all' | 'prefs' | 'routines' | 'people'
 const PEOPLE = ['Profile', 'Pet care']
 
@@ -246,7 +338,7 @@ export default function Memory() {
   }, [])
   useEffect(load, [load])
   useAuraEvents((e) => {
-    if (e.type === 'run.finished') load()
+    if (e.type === 'run.finished' || e.type.startsWith('reminder.')) load()
   })
 
   const prefCategories = [...new Set(prefs.map((p) => p.category))].filter((c) => !PEOPLE.includes(c)).sort((a, b) => (a === 'Comfort' ? -1 : b === 'Comfort' ? 1 : 0))
@@ -383,26 +475,15 @@ export default function Memory() {
 
       {filter === 'all' && (
         <section aria-labelledby="rem-title">
-          <SectionTitle id="rem-title" action={<Badge tone="mute">Simulated delivery</Badge>}>
+          <SectionTitle id="rem-title" action={<Badge tone="mute">Alerts only in an open AURA tab</Badge>}>
             Reminders
           </SectionTitle>
           {reminders.length === 0 ? (
-            <p className="card px-4 py-4 text-[14px] text-ink-soft">No reminders yet.</p>
+            <p className="card px-4 py-4 text-[14px] text-ink-soft">No reminders yet. Try “Remind me to lock the front door at 10 pm.”</p>
           ) : (
             <ul className="card group-list overflow-hidden">
               {reminders.map((r) => (
-                <li key={r.reminder_id} className="flex items-center gap-3 px-4 py-3.5">
-                  <span className="grid size-9 shrink-0 place-items-center" aria-hidden>
-                    <Bell className="size-[22px] text-[#7c6fa6]" strokeWidth={1.5} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[15px] font-medium">{r.title}{r.due && <span className="font-normal text-ink-mute"> · {r.due}</span>}</div>
-                    <div className="truncate text-[12px] text-ink-mute">{r.note}</div>
-                  </div>
-                  <Button size="sm" variant="ghost" onClick={() => removeReminder(r.reminder_id)} aria-label={`Delete reminder ${r.title}`}>
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </li>
+                <ReminderRow key={r.reminder_id} reminder={r} onChanged={load} onDelete={() => removeReminder(r.reminder_id)} />
               ))}
             </ul>
           )}
