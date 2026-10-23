@@ -6,7 +6,7 @@
  Browser (React)                    API process (FastAPI :8000)                 MCP server (:8765/mcp)
  ─────────────────                  ─────────────────────────────               ──────────────────────
  Home / Command Center   REST+SSE   WorkflowEngine (agent)          MCP over    MCPServer (official SDK)
- Memory / History      ◄─────────►  ├─ Planner: Bedrock | local     Streamable  ├─ 12 tools
+ Memory / History      ◄─────────►  ├─ Planner: Bedrock | local     Streamable  ├─ 15 tools
  Demo controls                      ├─ Policy (risk, validation)    HTTP        └─ HouseholdServices
                                     ├─ MCPToolGateway (client) ─────────────────►   ├─ SmartHomeSimulator
                                     └─ Ledger (runs/steps/events)                   ├─ Memory

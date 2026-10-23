@@ -1,6 +1,6 @@
 # Test report
 
-Last updated: 2026-10-22 (UTC). Every result marked as passed comes from a command that was actually run.
+Last updated: 2026-10-23 (UTC). Every result marked as passed comes from a command that was actually run.
 Anything not run is listed under "Not tested".
 
 ## Environment
@@ -21,17 +21,24 @@ make test-backend                                          # 52 passed in 15.88s
 PW_CHROMIUM_PATH=/opt/pw-browsers/chromium make test-e2e   # UI build + 8 passed (23.6s)
 ```
 
-## Backend: `make test-backend` (pytest) — 52 passed, 0 failed
+## Backend: `make test-backend` (pytest) — 99 passed, 0 failed
+
+The 52 original tests are listed first; the three files added on 2026-10-23 are at the end of the table.
 
 | File | Tests | Covers |
 |---|---|---|
 | `test_simulator.py` | 12 | Ack before settle ≠ state; energy-saver hold acks but ignores setpoint; release-hold applies; idempotency key prevents double apply; 5 invalid-command cases; unreachable device unreadable and command lost; drop-next-command drops exactly one; state persists across instances |
 | `test_engine.py` | 16 | Scenario 1 plan from memory, approval gate (no commands before approval), end-to-end verified with ack recorded before verification, re-run skips redundant commands, declining a sensitive step sends nothing, cancel before approval; Scenario 2 mismatch detected, explained and recovered with approval (attempt 2), retries bounded at 3 (also enforced by the MCP tool), dropped command auto-retried once, unreachable device ends UNKNOWN not success; Scenario 3 preference persists across fresh service/engine objects on the same DB and is applied in a new session; clarification for missing temperature; out-of-range plan rejected; read-only query runs without approval; unknown request creates no run; event timeline order; runs interrupted by a restart are not reported as success |
-| `test_mcp_http.py` | 7 | Real Streamable HTTP (uvicorn): 12 tools listed with annotations; **2025-11-25 legacy handshake**; ack + independent verification; MISMATCH reported; tool errors explained; gateway reports transport/protocol; full workflow over HTTP incl. `get_execution_status` / `get_execution_history` |
+| `test_mcp_http.py` | 7 | Real Streamable HTTP (uvicorn): expected tools listed (15 as of 2026-10-23) with annotations; **2025-11-25 legacy handshake**; ack + independent verification; MISMATCH reported; tool errors explained; gateway reports transport/protocol; full workflow over HTTP incl. `get_execution_status` / `get_execution_history` |
 | `test_api.py` | 6 | Health reports MCP connection; chat → approve → confirm → COMPLETED (double approve → 409); recovery via API; preference edit/validation/reset; forget-everything restores defaults; demo fault controls |
 | `test_planners.py` | 11 | Local planner maps the four prompt phrasings to the right routines; preference vs device command. **Bedrock planner with a stub client (mocked, no AWS call):** forced tool call parsed, request shape (`toolChoice`, `temperature`); routine actions come from memory, not the model; engine falls back to local and discloses the error; hallucinated device rejected; retry without forced tool choice; string preference values coerced |
+| `test_explicit_values.py` | 16 | **Temperature regression:** the overnight-shift routine with an explicit temperature (several phrasings) plans, executes and verifies that value instead of the saved 72°F, without changing the saved preference; the routine without a value still uses the preference; an unsupported value or two different temperatures ask for clarification instead of being replaced; an explicit temperature is added when the routine has no thermostat step; Bedrock `thermostat_setpoint_f` becomes the same override (stub client, mocked). **Greetings:** five greeting forms get an honest "local rule-based planner" reply and create no run; a greeting followed by a request still plans |
+| `test_conversation.py` | 18 | Multi-action command is one plan that keeps the lock approval, and executes and verifies each step independently; an unclear part asks instead of being dropped; verb-less lists inherit the previous verb; timer create/start/pause/resume/check/cancel through MCP with an independent read-back; ambiguous timer or missing length asks; pausing with nothing running is answered honestly; corrections replace an unapproved plan, or plan only the change after execution, and do not swallow preference statements; follow-up status questions, "what about …" and pronouns; wake-word variations (parametrized); spoken plan replies never claim success before approval |
+| `test_reminders.py` | 13 | Reminder with a device check parsed and stored; due with no tab open → "Not delivered"; delivery needs a tab to confirm; unacknowledged alert → "Unconfirmed"; unobservable task → user-confirmed, never verified; check verifies independently when due; marked done but device disagrees → mismatch; fix goes through an approved plan then re-checks; declined fix leaves the reminder unverified; fix refused for unobservable or passing reminders; snooze and dismiss; finished-timer delivery tracked; timer survives a restart from storage |
 
-## End to end: `make test-e2e` (Playwright, Chromium) — 8 passed, 0 failed
+## End to end: `make test-e2e` (Playwright, Chromium) — 16 passed, 0 failed
+
+Tests 1 to 8 are the original suite; 9 to 16 were added on 2026-10-23 (`e2e/chat.spec.ts`, `e2e/conversation.spec.ts`).
 
 Runs against an isolated server (ports 8100/8101, temporary SQLite, faster simulator timings).
 
@@ -46,6 +53,21 @@ Runs against an isolated server (ports 8100/8101, temporary SQLite, faster simul
    user's message → same plan as typing. Tests our code path only, not real speech recognition.
 7. No speech support: mic button disabled with an explanatory tooltip; typed requests still work
 8. Mobile (Pixel 7 viewport): bottom navigation works, no horizontal overflow
+9–10. **Chat scrolling regression, run in both the desktop (1440×900) and mobile (Pixel 7) projects:**
+   after each message, the bottom of the newest assistant reply (including its plan card) is above the
+   top of the input bar. The same test checks that "…overnight shift at 75 degrees" plans 75°F and never 72°F.
+11. Multi-action command: one plan, lock confirmation, "3/3 verified"
+12. Timers from chat and from the Home Timers card: create, pause (button), resume (chat), time left
+    (chat), cancel (button)
+13. Verified reminder: made due with the labelled demo control, alert shows "Not done" from an independent
+    read and "Shown in app", "Plan a fix" → approve → verified run → reminder shows "Verified" with the
+    "After the approved fix, an independent read confirms…" evidence entry
+14. Unobservable reminder ("feed Luna") marked done → "Confirmed by you", not "Verified"
+15. Greeting, correction ("Actually, make it 74" → "75°F → 74°F") and follow-up ("Did it work?" →
+    still waiting for approval)
+16. **Voice replies with a fake `speechSynthesis` (mocked):** the clarification question, the
+    "once you approve" confirmation and "Done, and verified" are spoken, and nothing is spoken as done
+    before verification. Tests our code path only, not real audio.
 
 ### Re-run after the desktop UI polish (branch `ui-desktop-polish`, 2026-10-23)
 
@@ -63,6 +85,17 @@ Other checks run in headless Chromium against the live dev server:
 - `reducedMotion: 'reduce'` emulation: orb `data-reduced="true"`, orb animations `none`, page transition
   effectively 0 s. Without it, the orb animations run.
 - No console errors or page errors during the screenshot run.
+
+### Re-run after conversation, timers and verified reminders (branch `ui-desktop-polish`, 2026-10-23)
+
+Final state of the branch: `pytest -q` 99 passed (25.9 s); Playwright 16 passed (51.5 s). The last three
+full Playwright runs were all green (two after the documentation edits, plus this final one). No test was skipped or loosened. While building the chat-scroll test, its failures
+exposed that smooth scrolling and late layout shifts released the "pinned to bottom" state; the code now
+releases it only on user input (wheel up, touch, arrow/page keys).
+
+Screenshots of the new features were taken from the running dev server in headless Chromium with real
+backend runs; they are in the project files under `aura-verify/screenshots/demo-fixes/`. Reminder alerts in screenshots were made due
+with the labelled demo control "Make due now (demo)", which is recorded in the reminder's history.
 
 ## Timing at default settings (manual, API-driven, 2026-10-22)
 
@@ -91,8 +124,11 @@ Do not declare the AWS Builder mini challenge until the live check passes; recor
 
 ## Not tested
 
-- **Real speech recognition and spoken replies** in Chrome/Edge/Safari (needs a microphone; the build
-  environment is headless).
+- **Real speech recognition and spoken replies** in Chrome/Edge/Safari (needs a microphone and speakers;
+  the build environment is headless). Automated tests use fake SpeechRecognition and speechSynthesis.
+- Reminder and timer alerts with the browser tab closed or the laptop asleep: there is no push channel, so
+  these are recorded as "Not delivered" by design, which the tests check, but no phone/OS notification exists.
+- Timezones other than UTC for "at 9 pm" reminders (set `AURA_TZ`; only UTC was exercised).
 - **Safari / WebKit and Firefox.** Playwright's WebKit and Firefox downloads were blocked by this
   environment's network policy (HTTP 403 from the proxy for `cdn.playwright.dev` and
   `playwright.download.prss.microsoft.com`). Only Chromium was tested.

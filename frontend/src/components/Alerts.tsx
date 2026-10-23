@@ -183,7 +183,7 @@ export function AlertCenter() {
 
   if (!alerts.length) return null
   return (
-    <div className="pointer-events-none fixed inset-x-3 top-3 z-50 flex flex-col items-end gap-2.5 sm:inset-x-auto sm:right-5 sm:top-5 sm:w-[380px]">
+    <div className="pointer-events-none fixed inset-x-3 top-3 z-50 flex flex-col items-end gap-2.5 sm:inset-x-auto sm:right-5 sm:top-[68px] sm:w-[380px]">
       {alerts.map((a) => {
         if (a.kind === 'timer') {
           const t = timers.find((x) => x.timer_id === a.id)

@@ -37,10 +37,11 @@ answer. AURA keeps six assurance levels separate and never merges them:
 
 - **Real MCP server** (`backend/aura/mcp_server.py`) built on the official MCP Python SDK 2.x, served
   over Streamable HTTP at `http://127.0.0.1:8765/mcp`. It negotiates protocol **2026-07-28** with modern
-  clients and still supports the **2025-11-25** initialize handshake (both tested). 12 tools:
+  clients and still supports the **2025-11-25** initialize handshake (both tested). 15 tools:
   `get_household_context`, `list_available_devices`, `read_device_state`, `set_device_state`,
   `verify_action`, `retry_failed_action`, `get_routine`, `save_routine`, `update_preference`,
-  `create_reminder`, `get_execution_status`, `get_execution_history`.
+  `create_reminder`, `list_reminders`, `manage_timer`, `list_timers`, `get_execution_status`,
+  `get_execution_history`.
 - **Agent + workflow engine** (`backend/aura/engine.py`): an MCP *client* that plans, asks for approval,
   executes, verifies, diagnoses and recovers. Every household effect is an MCP `tools/call`.
 - **Deterministic smart-home simulator** (`backend/aura/simulator.py`) whose acknowledgements are
@@ -57,6 +58,34 @@ answer. AURA keeps six assurance levels separate and never merges them:
   input via the Web Speech API where supported, text always), Workflow Command Center with live timeline,
   evidence and MCP tool log, Memory & Preferences with edit/reset/export/forget, and Execution History.
   A clearly separated **Demo controls** drawer injects simulated faults.
+
+### Conversation, reminders and timers
+
+- **Multi-action requests.** “Turn off the bedroom lights, set the thermostat to 75 degrees, and lock the
+  front door” becomes one plan with one step per action. The normal rules still apply: the plan needs your
+  approval, the lock asks separately, and each step is verified by its own independent read. If part of a
+  request isn't understood, AURA asks about that part instead of dropping it.
+- **Explicit values win.** “Prepare the house before my overnight shift at 75 degrees” runs the routine
+  with 75°F for that run only (the step says so; the saved 72°F preference is unchanged). Out-of-range or
+  conflicting values get a question instead.
+- **Conversation context.** Greetings and wake words (“Hey Aura”, “OK Alexa”) are handled; corrections
+  (“actually, make it 74”, “no, the bedroom lights”) replace a plan that hasn't run, or plan only the change
+  if it has; follow-ups (“did it work?”, “what about the porch light?”, “turn it on”) use the last request.
+  The local planner says plainly that it can't chat freely.
+- **Timers** (`backend/aura/timers.py`): create, start, pause, resume, check and cancel, by voice/text or with
+  the buttons on Home. They are stored in SQLite (they survive a reload or restart), run through the
+  `manage_timer` MCP tool and are read back before AURA reports them.
+- **Verified Reminders** (`backend/aura/alerts.py`). Each reminder records three separate things:
+  *delivery* (an open AURA tab has to confirm it showed the alert; if no tab is open at the due time it is
+  recorded as **not delivered**, because nothing is pushed anywhere else), *outcome* (for a task AURA can
+  observe, such as “lock the front door”, it reads the device through `verify_action` when the reminder is
+  due and when you say you did it; for a task it can't observe, such as “feed Luna”, your “Done” is recorded
+  as **confirmed by you**, never as verified) and an *evidence history*. A failed check can be fixed only
+  through a normal plan that you approve; the reminder is re-checked after that run finishes. In Memory,
+  “Make due now (demo)” fires a reminder immediately for demos and is labeled as such in its history.
+- **Spoken replies.** With Voice replies on, AURA speaks its own transcript messages (plans, questions,
+  verified results) and reminder and timer alerts, using the browser's speech synthesis. Plan replies say
+  what will happen once you approve; nothing is spoken as done before it has been verified.
 
 ### UI notes
 
@@ -136,7 +165,7 @@ More to try: *"set the thermostat"* (AURA asks for the temperature), *"What's th
 
 ```bash
 make test-backend   # pytest: engine, simulator, MCP over real HTTP, API, planners
-make test-e2e       # Playwright: the three scenarios + mobile layout, against an isolated server
+make test-e2e       # Playwright: scenarios, conversation, reminders, timers, voice, chat scroll, mobile
 ```
 
 `make test-e2e` builds the UI and starts its own backend on ports 8100/8101 with a temporary database.
@@ -178,6 +207,8 @@ arguments, results, duration, transport and negotiated protocol version.
 See [.env.example](.env.example). The most useful: `AURA_PLANNER` (`auto`/`local`/`bedrock`),
 `AURA_BEDROCK_MODEL_ID`, `AWS_REGION`, `AURA_DB_PATH`, `AURA_API_PORT`, `AURA_MCP_PORT`, and the
 verification timing knobs (`AURA_SIM_SETTLE_MS`, `AURA_VERIFY_TIMEOUT_S`, `AURA_MAX_ATTEMPTS`).
+`AURA_TZ` (IANA name, e.g. `America/New_York`) sets the time zone for reminder due times;
+`AURA_DELIVERY_ACK_S` (default 20) is how long an open tab has to confirm it showed an alert.
 
 ## Repository layout
 
@@ -206,7 +237,10 @@ frontend/e2e/     Playwright scenarios
   against live Bedrock** in our build environment (no AWS credentials there). See TEST_REPORT.md.
 - The local planner is a deterministic pattern matcher, not a language model; it understands the demo
   phrasings and common variants, not open-ended conversation.
-- Reminders are stored and shown, but nothing is delivered to a phone.
+- Reminder and timer alerts appear only in an open AURA browser tab; nothing is delivered to a phone, and a
+  missed alert is recorded as not delivered. Due times use the server's time zone unless `AURA_TZ` is set.
+- The local planner handles a fixed set of phrasings for multi-action requests, timers, corrections and
+  follow-ups. Unusual phrasings may get a question or "not sure" instead of a plan.
 - Single-user, local deployment; no authentication on the API or MCP server (bind to localhost).
 
 ## Documentation
