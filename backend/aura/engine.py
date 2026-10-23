@@ -38,6 +38,36 @@ from .policy import PlanValidationError, assess_risk, validate_actions
 log = logging.getLogger("aura.engine")
 
 
+def apply_overrides(actions: list[PlannedAction], overrides: dict[str, dict[str, Any]]) -> list[PlannedAction]:
+    """Apply values the user stated for this run on top of a routine's saved preferences.
+
+    The saved preference itself is untouched; the step says where its value came from. A device the routine
+    doesn't touch gets its own step, so an explicit request is never dropped.
+    """
+    out: list[PlannedAction] = []
+    pending = dict(overrides)
+    for a in actions:
+        new = pending.pop(a.device_id, None) if a.action == "set_device" else None
+        if new:
+            before = {k: a.attributes.get(k) for k in new}
+            a = a.model_copy(update={"attributes": {**a.attributes, **new}})
+            if "setpoint_f" in new:
+                a.title = f"Set the thermostat to {new['setpoint_f']}°F"
+            said = ", ".join(f"{v}°F" if k == "setpoint_f" else f"{k} = {v}" for k, v in new.items())
+            was = ", ".join(f"{v}°F" if k == "setpoint_f" else f"{k} = {v}" for k, v in before.items())
+            a.rationale = f"You asked for {said} for this run."
+            a.provenance = f"From your request: {said} (routine default {was}; saved preference unchanged)"
+        out.append(a)
+    for device_id, attrs in pending.items():
+        said = ", ".join(f"{v}°F" if k == "setpoint_f" else f"{k} = {v}" for k, v in attrs.items())
+        title = (f"Set the thermostat to {attrs['setpoint_f']}°F" if device_id == "thermostat" and "setpoint_f" in attrs
+                 else f"Set {device_id.replace('_', ' ')}: {said}")
+        out.append(PlannedAction(action="set_device", device_id=device_id, attributes=attrs, title=title,
+                                 rationale=f"You asked for {said} for this run.",
+                                 provenance=f"From your request: {said}"))
+    return out
+
+
 class EngineError(Exception):
     """A request the engine refuses (wrong state, unknown id). Maps to HTTP 4xx."""
 
@@ -125,6 +155,9 @@ class WorkflowEngine:
                 return {"message": self.ledger.add_message(session_id, "assistant", text, meta=meta), "run": None}
             actions = [PlannedAction.model_validate(a) for a in routine.data["resolved_actions"]]
             meta["routine_loaded_from"] = "get_routine (MCP) — resolved with current saved preferences"
+            if draft.overrides:
+                actions = apply_overrides(actions, draft.overrides)
+                meta["overrides"] = draft.overrides
 
         try:
             validate_actions(actions, context.get("devices", []),

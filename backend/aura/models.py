@@ -83,6 +83,9 @@ class PlanDraft(BaseModel):
     actions: list[PlannedAction] = Field(default_factory=list)
     clarification_question: str | None = None
     pending_slot: dict[str, Any] | None = None
+    # Explicit values the user gave for this run only, applied on top of a routine's saved preferences,
+    # e.g. {"thermostat": {"setpoint_f": 75}}. Saved preferences are not changed.
+    overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
     planner: str = "local"
     planner_detail: str = ""
 

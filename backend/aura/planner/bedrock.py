@@ -30,6 +30,10 @@ PLAN_TOOL = {
                                         "description": "One or two short sentences to speak aloud. Never claim an "
                                                        "action already happened: nothing has executed yet."},
                     "routine_id": {"type": "string", "description": "Required when intent is routine."},
+                    "thermostat_setpoint_f": {"type": "integer",
+                                              "description": "Only with intent routine: a temperature the user "
+                                                             "stated explicitly for this run (overrides the saved "
+                                                             "preference for this run only)."},
                     "clarification_question": {"type": "string"},
                     "actions": {
                         "type": "array",
@@ -65,7 +69,9 @@ You do not execute anything. You turn one user request into a plan by calling su
 
 Rules:
 - If the request matches a saved routine, use intent "routine" with its routine_id and NO actions (the system expands
-  routines from stored memory).
+  routines from stored memory). If the user also states a temperature for that routine, put it in
+  thermostat_setpoint_f; never drop or replace an explicit value. If it is outside the thermostat's allowed range,
+  or more than one temperature is given, use intent "clarify" instead.
 - If the user states a lasting preference ("I prefer...", "from now on...", "actually..."), use intent
   "preference_update" with one update_preference action using an existing preference key.
 - For direct device commands use set_device with attributes allowed for that device. For questions use read_device.
@@ -146,6 +152,8 @@ class BedrockPlanner:
             spoken_response=str(raw.get("spoken_response", ""))[:400],
             routine_id=raw.get("routine_id") or None,
             actions=[] if raw["intent"] == "routine" else actions,
+            overrides={"thermostat": {"setpoint_f": int(raw["thermostat_setpoint_f"])}}
+            if raw["intent"] == "routine" and raw.get("thermostat_setpoint_f") is not None else {},
             clarification_question=raw.get("clarification_question"),
             pending_slot={"slot": "freeform", "question": raw.get("clarification_question")}
             if raw["intent"] == "clarify" else None,

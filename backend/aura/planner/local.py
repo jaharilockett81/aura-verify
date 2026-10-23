@@ -29,6 +29,14 @@ LIGHT_NAMES = {"living_room_lights": "living room lights", "bedroom_lights": "be
 PREF_CUES = re.compile(r"\b(prefer|preference|from now on|remember|i like|i'd like it|actually|always|"
                        r"change my|update my|my usual|default)\b")
 NUMBER = re.compile(r"\b(\d{2,3})\s*(?:°|degrees?|deg|f\b|percent|%)?")
+# A temperature the user stated explicitly: "75°F", "75 degrees", or "to/at 75" next to a temperature word.
+TEMP_UNIT = re.compile(r"\b(\d{2,3})\s*(?:°\s*f?|degrees?\b|deg\b|f\b)")
+TEMP_ALT = re.compile(r"\b(\d{2,3})\s+(?:or|and|to|-)\s+\d{2,3}\s*(?:°|degrees?\b|f\b)")
+TEMP_WORD = re.compile(r"\b(thermostat|temperature|temp|heat|warm|cool|degrees?)\b|°")
+TEMP_BARE = re.compile(r"\b(?:to|at|on|keep it|around)\s+(\d{2,3})\b(?!\s*(?::|am\b|pm\b|a\.m|p\.m|%|percent))")
+GREETING = re.compile(r"^(hey|hi|hello|hiya|howdy|yo|good (morning|afternoon|evening|night))"
+                      r"( there)?( aura)?( how are you( doing)?| what'?s up)?$")
+THANKS = re.compile(r"^(thanks|thank you|thank you so much|thanks a lot|cheers|great|perfect|ok(ay)?|cool)( aura)?$")
 TIME = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?")
 
 
@@ -46,6 +54,23 @@ def _parse_time(text: str) -> str | None:
     return f"{hour:02d}:{minute:02d}"
 
 
+def _explicit_temperatures(text: str) -> list[int]:
+    """Every temperature the user stated explicitly, in order, without duplicates."""
+    found = sorted(((m.start(), int(m.group(1))) for m in [*TEMP_UNIT.finditer(text), *TEMP_ALT.finditer(text)]))
+    found = [n for _, n in found]
+    if TEMP_WORD.search(text):
+        found += [int(m.group(1)) for m in TEMP_BARE.finditer(text)]
+    return list(dict.fromkeys(found))
+
+
+def _setpoint_range(context: dict[str, Any]) -> tuple[int, int]:
+    for d in context.get("devices", []):
+        rule = (d.get("settable_attributes") or {}).get("setpoint_f")
+        if d.get("device_id") == "thermostat" and rule and "int" in rule:
+            return tuple(rule["int"])  # type: ignore[return-value]
+    return (60, 80)
+
+
 def _first_number(text: str) -> int | None:
     for m in NUMBER.finditer(text):
         return int(m.group(1))
@@ -57,15 +82,19 @@ class LocalPlanner:
 
     async def plan(self, utterance: str, context: dict[str, Any], pending: dict[str, Any] | None) -> PlanDraft:
         text = " ".join(utterance.lower().strip().split())
-        text = text.replace("alexa,", "").replace("alexa", "").replace("aura,", "").strip(" ,.!?")
         prefs = {p["key"]: p for p in context.get("preferences", [])}
+        small_talk = self._small_talk(text.replace("alexa", "aura"), prefs)
+        text = text.replace("alexa,", "").replace("alexa", "").replace("aura,", "").strip(" ,.!?")
+        if small_talk is not None:
+            return small_talk
 
         if pending:
-            filled = self._fill_pending(text, pending)
+            filled = self._fill_pending(text, pending, context, prefs)
             if filled:
                 return filled
 
-        for handler in (self._preference, self._reminder, self._query, self._device, self._routine):
+        for handler in (self._preference, self._reminder, self._query, self._routine_with_values, self._device,
+                        self._routine):
             draft = handler(text, context, prefs)
             if draft is not None:
                 return draft
@@ -88,7 +117,15 @@ class LocalPlanner:
             planner="local", planner_detail=PLANNER_LABEL,
         )
 
-    def _fill_pending(self, text: str, pending: dict[str, Any]) -> PlanDraft | None:
+    def _fill_pending(self, text: str, pending: dict[str, Any], context: dict[str, Any],
+                      prefs: dict[str, Any]) -> PlanDraft | None:
+        if pending.get("slot") == "routine_setpoint_f":
+            routine = next((r for r in context.get("routines", []) if r["id"] == pending.get("routine_id")), None)
+            n = _first_number(text)
+            lo, hi = _setpoint_range(context)
+            if routine is None or n is None or not lo <= n <= hi:
+                return None
+            return self._routine_draft(routine, prefs, {"thermostat": {"setpoint_f": n}})
         if pending.get("slot") == "setpoint_f":
             n = _first_number(text)
             if n is None:
@@ -101,6 +138,54 @@ class LocalPlanner:
             if device:
                 return self._lights_plan([device], pending["power"])
         return None
+
+    # ----- greetings ------------------------------------------------------------------------------
+    def _small_talk(self, text: str, prefs: dict[str, Any]) -> PlanDraft | None:
+        """Short greetings and thanks get a short, honest reply. Nothing else is treated as conversation."""
+        bare = " ".join(re.sub(r"[^a-z' ]", " ", text).split())
+        name = prefs.get("user_name", {}).get("value")
+        if GREETING.fullmatch(bare) or bare in ("aura", "hey aura", "hi aura", "hello aura"):
+            return self._draft(
+                intent="unknown", summary="Greeting",
+                spoken=(f"Hi{', ' + name if name else ''}. I'm running on AURA's local rule-based planner, so I can't "
+                        "chat freely, but I can run a routine like bedtime or overnight shift, set the thermostat, "
+                        "lights or lock, add a reminder, or check on the house."),
+            )
+        if THANKS.fullmatch(bare):
+            return self._draft(intent="unknown", summary="Thanks", spoken="You're welcome.")
+        return None
+
+    # ----- routines with explicit values ---------------------------------------------------------------
+    def _routine_with_values(self, text: str, context: dict[str, Any], prefs: dict[str, Any]) -> PlanDraft | None:
+        """A routine request that also states a temperature ("…before my overnight shift, at 75°F").
+
+        The explicit value wins over the saved preference for this run only. Unsupported or ambiguous values get a
+        clarification instead of being silently replaced by the saved preference.
+        """
+        temps = _explicit_temperatures(text)
+        if not temps:
+            return None
+        draft = self._routine(text, context, prefs)
+        if draft is None:
+            return None
+        routine = next(r for r in context.get("routines", []) if r["id"] == draft.routine_id)
+        lo, hi = _setpoint_range(context)
+        if len(temps) > 1:
+            return self._draft(
+                intent="clarify", summary=f"{routine['name']}: which temperature?",
+                spoken=f"I heard {' and '.join(f'{t}°F' for t in temps)}. Which temperature should I use?",
+                question=f"I heard {' and '.join(f'{t}°F' for t in temps)}. Which temperature should the "
+                         f"{routine['name'].lower()} routine use?",
+                pending={"slot": "routine_setpoint_f", "routine_id": routine["id"]})
+        n = temps[0]
+        if not lo <= n <= hi:
+            return self._draft(
+                intent="clarify", summary=f"{routine['name']}: temperature out of range",
+                spoken=f"The thermostat supports {lo} to {hi}°F, so I can't use {n}°F. What temperature would you like?",
+                question=f"The thermostat supports {lo}–{hi}°F, so I can't set {n}°F. Which temperature should the "
+                         f"{routine['name'].lower()} routine use?",
+                pending={"slot": "routine_setpoint_f", "routine_id": routine["id"]})
+        return self._routine_draft(routine, prefs, {"thermostat": {"setpoint_f": n}})
 
     # ----- preferences ---------------------------------------------------------------------------
     def _preference(self, text: str, context: dict[str, Any], prefs: dict[str, Any]) -> PlanDraft | None:
@@ -255,9 +340,18 @@ class LocalPlanner:
                 best, best_score = r, score
         if best is None:
             return None
+        return self._routine_draft(best, prefs)
+
+    def _routine_draft(self, routine: dict[str, Any], prefs: dict[str, Any],
+                       overrides: dict[str, dict[str, Any]] | None = None) -> PlanDraft:
         name = prefs.get("user_name", {}).get("value")
-        return self._draft(
-            intent="routine", routine_id=best["id"], summary=f"Run routine: {best['name']}",
-            spoken=f"Here's your {best['name'].lower()} plan" + (f", {name}" if name else "") +
-                   ". Take a look and approve when ready.",
+        extra = ""
+        if overrides and (n := overrides.get("thermostat", {}).get("setpoint_f")) is not None:
+            extra = f" The thermostat is set to {n}°F, as you asked, for this run only."
+        draft = self._draft(
+            intent="routine", routine_id=routine["id"], summary=f"Run routine: {routine['name']}",
+            spoken=f"Here's your {routine['name'].lower()} plan" + (f", {name}" if name else "") +
+                   "." + extra + " Take a look and approve when ready.",
         )
+        draft.overrides = overrides or {}
+        return draft

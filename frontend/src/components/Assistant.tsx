@@ -194,11 +194,54 @@ export interface Chip {
 
 function Transcript({ messages, thinking }: { messages: Message[]; thinking: boolean }) {
   const end = useRef<HTMLDivElement>(null)
+  const list = useRef<HTMLDivElement>(null)
+  // Follow the newest message unless the reader has scrolled up to read something older.
+  const pinned = useRef(true)
+  const scrollToEnd = useCallback((behavior: ScrollBehavior) => {
+    end.current?.scrollIntoView({ behavior, block: 'end' })
+  }, [])
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [messages, thinking])
+    pinned.current = true
+    scrollToEnd('smooth')
+  }, [messages, thinking, scrollToEnd])
+  useEffect(() => {
+    const atEnd = () => {
+      const el = end.current
+      if (!el) return true
+      // The end marker's scroll-margin reserves room for the sticky input bar, so "at the end" means the
+      // marker sits within that margin of the viewport bottom.
+      const margin = parseFloat(getComputedStyle(el).scrollMarginBottom) || 0
+      return el.getBoundingClientRect().bottom <= window.innerHeight - margin + 48
+    }
+    const onScroll = () => {
+      if (atEnd()) pinned.current = true
+    }
+    // Only the reader scrolling up releases the pin. Layout shifts (the typing dots disappearing, the orb
+    // shrinking) also move the scroll position, so scroll direction alone can't tell them apart.
+    const release = () => {
+      window.setTimeout(() => {
+        if (!atEnd()) pinned.current = false
+      }, 50)
+    }
+    const onWheel = (e: WheelEvent) => e.deltaY < 0 && release()
+    const onKey = (e: KeyboardEvent) => ['ArrowUp', 'PageUp', 'Home'].includes(e.key) && release()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('touchmove', release, { passive: true })
+    window.addEventListener('keydown', onKey)
+    // Plan cards load after their message renders and grow the transcript; keep the newest content in view.
+    const ro = new ResizeObserver(() => pinned.current && scrollToEnd('auto'))
+    if (list.current) ro.observe(list.current)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('wheel', onWheel)
+      window.removeEventListener('touchmove', release)
+      window.removeEventListener('keydown', onKey)
+      ro.disconnect()
+    }
+  }, [scrollToEnd])
   return (
-    <div className="space-y-3" aria-live="polite" aria-label="Conversation">
+    <div ref={list} className="space-y-3" aria-live="polite" aria-label="Conversation">
       {messages.map((m) => (
         <div key={m.id} className={cx('flex animate-rise', m.role === 'user' ? 'justify-end' : 'justify-start')}>
           <div className="max-w-[92%]">
@@ -228,7 +271,8 @@ function Transcript({ messages, thinking }: { messages: Message[]; thinking: boo
           ))}
         </div>
       )}
-      <div ref={end} />
+      {/* Scroll margin = sticky input bar (56/64 px) + its offset from the viewport bottom + breathing room. */}
+      <div ref={end} data-testid="transcript-end" className="scroll-mb-[176px] lg:scroll-mb-[112px]" />
     </div>
   )
 }
