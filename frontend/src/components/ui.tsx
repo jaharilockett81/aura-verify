@@ -36,12 +36,12 @@ export function Badge({ tone = 'mute', children, className }: { tone?: Tone; chi
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'warn' | 'verified'
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-lav-300 text-night-950 hover:bg-lav-200 shadow-[0_1px_2px_rgba(0,0,0,0.3)]',
-  secondary: 'bg-white/[0.09] text-ink hover:bg-white/[0.13]',
-  ghost: 'text-ink-soft hover:text-ink hover:bg-white/[0.06]',
-  danger: 'bg-failed/14 text-failed hover:bg-failed/22',
-  warn: 'bg-recover text-night-950 hover:brightness-105 shadow-[0_1px_2px_rgba(0,0,0,0.3)]',
-  verified: 'bg-verified/14 text-verified hover:bg-verified/22',
+  primary: 'bg-forest text-white hover:bg-[#286b4a] shadow-[0_6px_16px_-8px_rgba(46,122,85,0.7)]',
+  secondary: 'bg-white/80 text-ink ring-1 ring-inset ring-white hover:bg-white shadow-[0_2px_8px_-4px_rgba(23,52,61,0.18)]',
+  ghost: 'text-ink-soft hover:text-ink hover:bg-white/60',
+  danger: 'bg-[#fadbe2] text-[#c4475d] hover:bg-[#f7cdd6]',
+  warn: 'bg-[#f3c8a0] text-[#6b3e17] hover:bg-[#efbd8f]',
+  verified: 'bg-[#d9eee0] text-verified-deep hover:bg-[#cce7d6]',
 }
 
 export function Button({
@@ -99,7 +99,7 @@ export function StatusIcon({ status, className }: { status: StepStatus; classNam
 export function SectionTitle({ children, action, id }: { children: ReactNode; action?: ReactNode; id?: string }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 id={id} className="px-1 text-[13px] font-medium uppercase tracking-[0.06em] text-ink-mute">
+      <h2 id={id} className="px-1 text-[17px] font-semibold tracking-tight text-ink">
         {children}
       </h2>
       {action}
@@ -108,12 +108,12 @@ export function SectionTitle({ children, action, id }: { children: ReactNode; ac
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="card px-4 py-8 text-center text-sm text-ink-mute">{children}</p>
+  return <p className="card px-4 py-8 text-center text-sm text-ink-soft">{children}</p>
 }
 
 export function ErrorNote({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="flex items-start gap-2 rounded-2xl bg-failed/10 px-3.5 py-2.5 text-sm text-failed">
+    <p role="alert" className="flex items-start gap-2 rounded-2xl bg-[#fadbe2]/90 px-3.5 py-2.5 text-sm text-[#c4475d]">
       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span>{children}</span>
     </p>
@@ -135,7 +135,7 @@ export function Segmented<T extends string>({
   className?: string
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cx('inline-flex w-full rounded-[12px] bg-white/[0.07] p-0.5 sm:w-auto', className)}>
+    <div role="radiogroup" aria-label={label} className={cx('inline-flex w-full gap-1 rounded-full sm:w-auto', className)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -143,8 +143,8 @@ export function Segmented<T extends string>({
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cx(
-            'h-8 flex-1 rounded-[10px] px-4 text-[13px] font-medium transition-all sm:flex-none',
-            value === o.value ? 'bg-night-500/80 text-ink shadow-[0_2px_6px_rgba(0,0,0,0.35)]' : 'text-ink-soft hover:text-ink',
+            'h-8 flex-1 rounded-full px-4 text-[13px] font-medium transition-all sm:flex-none',
+            value === o.value ? 'bg-forest text-white shadow-[0_4px_12px_-6px_rgba(46,122,85,0.8)]' : 'bg-white/60 text-ink-soft hover:bg-white/85 hover:text-ink',
           )}
         >
           {o.label}

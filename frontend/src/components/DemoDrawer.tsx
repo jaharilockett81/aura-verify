@@ -59,9 +59,9 @@ export function DemoDrawer() {
   const applicable = (d: Device, kind: string) => kind !== 'energy_saver_hold' || d.type === 'thermostat'
 
   return (
-    <div className={cx('fixed inset-0 z-40', demoOpen ? 'pointer-events-auto' : 'pointer-events-none')} aria-hidden={!demoOpen}>
+    <div className={cx('fixed inset-0 z-40 transition-[visibility] duration-300', demoOpen ? 'pointer-events-auto visible' : 'pointer-events-none invisible')} aria-hidden={!demoOpen}>
       <div
-        className={cx('absolute inset-0 bg-black/50 transition-opacity duration-300', demoOpen ? 'opacity-100' : 'opacity-0')}
+        className={cx('absolute inset-0 bg-[#17343d]/20 transition-opacity duration-300', demoOpen ? 'opacity-100' : 'opacity-0')}
         onClick={() => setDemoOpen(false)}
       />
       {/* Bottom sheet on phones, centered modal sheet on larger screens */}
@@ -70,12 +70,12 @@ export function DemoDrawer() {
         aria-modal="true"
         aria-labelledby="demo-title"
         className={cx(
-          'absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col rounded-t-[28px] bg-night-850 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.8)] ring-1 ring-white/8 transition-all duration-300 ease-out',
+          'glass-strong absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col rounded-t-[28px] bg-night-850/95 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.8)] ring-1 ring-white/8 transition-all duration-300 ease-out',
           'sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[82vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:rounded-[28px]',
           demoOpen ? 'translate-y-0 opacity-100 sm:-translate-y-1/2' : 'translate-y-full sm:-translate-y-[46%] sm:opacity-0',
         )}
       >
-        <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-white/20 sm:hidden" aria-hidden />
+        <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-ink/15 sm:hidden" aria-hidden />
         <div className="flex items-start justify-between gap-3 px-6 pb-4 pt-4 sm:pt-6">
           <div>
             <h2 id="demo-title" className="flex items-center gap-2 text-[20px] font-semibold tracking-tight">
@@ -89,7 +89,7 @@ export function DemoDrawer() {
               AURA is not told about them: it has to discover problems through verification.
             </p>
           </div>
-          <button onClick={() => setDemoOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.08] text-ink-soft hover:bg-white/[0.14] hover:text-ink" aria-label="Close demo controls">
+          <button onClick={() => setDemoOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-full bg-ink/[0.06] text-ink-soft hover:bg-ink/10 hover:text-ink" aria-label="Close demo controls">
             <X className="size-4" />
           </button>
         </div>

@@ -1,7 +1,7 @@
 # AURA Verify demo video script (target 2:45, hard limit under 3:00)
 
 **Setup before recording:** `make reset && make serve`, open http://127.0.0.1:8000 at 1440×900, voice
-replies on (header toggle), Demo controls closed. Rehearse once. Measured at default settings: the
+replies on (Settings gear → Voice replies), Demo controls closed. Rehearse once. Measured at default settings: the
 thermostat failure is detected about 5 seconds after approval (3 s verification window by design), recovery
 verifies in about 1 second. Narrate over those waits rather than cutting them: the wait *is* the verification.
 
@@ -35,7 +35,7 @@ Do not show trademarks you don't have rights to (no Echo device footage, no Alex
 *Click Confirm. "Everything verified, 5 of 5."*
 
 ### 0:55–1:50 · Scenario 2: the silent failure (signature moment)
-*Back to Home. Click the "Run failure demo" chip. Approve.*
+*Back to Home. Click the "Run failure demo" card. Approve.*
 
 > "Now the real world fights back. I've put the simulated thermostat into an energy-saver hold, and AURA
 > doesn't know. The hub says 'accepted' to 72 degrees, exactly like a real API would."
@@ -50,7 +50,7 @@ Do not show trademarks you don't have rights to (no Echo device footage, no Alex
 > "It offers a fix, releasing the hold and re-applying 72, and because that overrides my energy program,
 > it asks first. Retries are capped at three attempts, enforced on the server."
 
-*Click "Release the hold and set 72°F". Attempt 2/3 → Verified. Confirm the lock.*
+*Click "Allow recovery" (AURA recommends releasing the hold and setting 72°F). Attempt 2/3 → Verified. Confirm the lock.*
 
 > "Recovered, and verified. The summary tells me exactly what went wrong and what it did."
 

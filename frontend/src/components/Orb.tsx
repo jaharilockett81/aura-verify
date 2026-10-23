@@ -2,25 +2,27 @@ import { cx } from './ui'
 
 export type OrbState = 'idle' | 'listening' | 'thinking' | 'working' | 'attention'
 
-/** AURA's presence indicator: a softly lit sphere. Colour encodes state, not decoration. */
-export function Orb({ state, size = 56 }: { state: OrbState; size?: number }) {
-  const tint =
+/** AURA's presence: a pearlescent sphere that breathes quietly. Its halo changes with state. */
+export function Orb({ state, size = 160 }: { state: OrbState; size?: number }) {
+  const halo =
     state === 'attention'
-      ? 'rgba(242,188,87,0.9)'
+      ? 'rgba(240, 180, 120, 0.55)'
       : state === 'listening'
-        ? 'rgba(70,209,194,0.9)'
-        : 'rgba(124,201,255,0.85)'
+        ? 'rgba(140, 210, 180, 0.6)'
+        : state === 'thinking' || state === 'working'
+          ? 'rgba(180, 200, 240, 0.55)'
+          : 'rgba(255, 255, 255, 0)'
   return (
-    <div
-      className={cx('relative shrink-0 rounded-full', state === 'idle' ? 'animate-breathe' : (state === 'listening' || state === 'thinking') && 'animate-pulse')}
-      style={{
-        width: size,
-        height: size,
-        background: `radial-gradient(circle at 32% 28%, rgba(255,255,255,0.85), ${tint} 22%, rgba(142,162,255,0.55) 58%, rgba(17,24,39,0.9) 100%)`,
-        boxShadow: '0 10px 30px -12px rgba(0,0,0,0.7), inset 0 -6px 14px rgba(11,16,32,0.55)',
-      }}
-      role="img"
-      aria-label={`AURA is ${state === 'idle' ? 'ready' : state}`}
-    />
+    <div className="relative shrink-0" style={{ width: size, height: size * 1.12 }} role="img" aria-label={`AURA is ${state === 'idle' ? 'ready' : state}`}>
+      <div
+        className={cx('orb absolute inset-x-0 top-0 transition-shadow duration-700', state === 'idle' ? 'animate-breathe' : 'animate-pulse')}
+        style={{ width: size, height: size, outline: `${Math.round(size / 14)}px solid ${halo}`, outlineOffset: 2 }}
+      />
+      {/* soft contact shadow */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-[#8a7f92]/25 blur-md"
+        style={{ width: size * 0.62, height: size * 0.09, top: size * 1.02 }}
+      />
+    </div>
   )
 }

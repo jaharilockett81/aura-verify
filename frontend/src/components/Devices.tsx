@@ -1,29 +1,51 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Lamp, Lightbulb, Lock, LockOpen, Thermometer, Waves, WifiOff } from 'lucide-react'
+import { AudioWaveform, Bell, Lightbulb, Lock, LockOpen, Sparkles, Thermometer, WifiOff } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuraEvents } from '../lib/aura'
 import { deviceSummary } from '../lib/format'
-import type { Device } from '../lib/types'
+import type { Device, Step } from '../lib/types'
 import { Badge, cx } from './ui'
 
-function DeviceIcon({ d }: { d: Device }) {
-  const on = d.state?.power === 'on'
-  const c = 'size-[18px]'
-  if (!d.reachable) return <WifiOff className={cx(c, 'text-unknown')} />
-  switch (d.type) {
-    case 'thermostat':
-      return <Thermometer className={cx(c, d.state?.hold === 'energy_saver' ? 'text-recover' : 'text-failed/90')} />
-    case 'lock':
-      return d.state?.locked ? <Lock className={cx(c, 'text-verified')} /> : <LockOpen className={cx(c, 'text-ink-soft')} />
-    case 'light':
-      return d.device_id === 'bedroom_lights' ? (
-        <Lamp className={cx(c, on ? 'text-recover' : 'text-ink-mute')} />
-      ) : (
-        <Lightbulb className={cx(c, on ? 'text-recover' : 'text-ink-mute')} />
-      )
-    default:
-      return <Waves className={cx(c, on ? 'text-lav-300' : 'text-ink-mute')} />
-  }
+/** Pastel icon chip per device kind, as in the reference. */
+const KIND: Record<string, { icon: LucideIcon; tint: string; color: string }> = {
+  thermostat: { icon: Thermometer, tint: 'bg-white/90', color: 'text-ink' },
+  lock: { icon: Lock, tint: 'bg-white/90', color: 'text-[#c9814a]' },
+  unlock: { icon: LockOpen, tint: 'bg-white/90', color: 'text-[#c9814a]' },
+  light: { icon: Lightbulb, tint: 'bg-white/90', color: 'text-ink' },
+  lamp: { icon: Lightbulb, tint: 'bg-white/90', color: 'text-ink' },
+  plug: { icon: AudioWaveform, tint: 'bg-white/90', color: 'text-[#5a5fa8]' },
+  reminder: { icon: Bell, tint: 'bg-[#ece8f4]', color: 'text-[#7c6fa6]' },
+  memory: { icon: Sparkles, tint: 'bg-[#e3efe5]', color: 'text-verified-deep' },
+  offline: { icon: WifiOff, tint: 'bg-mist', color: 'text-unknown' },
+}
+
+export function kindForDevice(id: string, type?: string, locked?: boolean) {
+  if (type === 'lock' || id === 'front_door') return locked === false ? 'unlock' : 'lock'
+  if (type === 'thermostat' || id === 'thermostat') return 'thermostat'
+  if (type === 'plug' || id === 'white_noise') return 'plug'
+  if (id === 'bedroom_lights') return 'lamp'
+  return 'light'
+}
+
+export function kindForStep(step: Step) {
+  if (step.action === 'create_reminder') return 'reminder'
+  if (step.action === 'update_preference') return 'memory'
+  return kindForDevice(step.target.replace(/^device:/, ''))
+}
+
+export function Glyph({ kind, size = 40, className }: { kind: string; size?: number; className?: string }) {
+  const k = KIND[kind] ?? KIND.light
+  const Icon = k.icon
+  return (
+    <span
+      className={cx('grid shrink-0 place-items-center rounded-full shadow-[0_2px_6px_-3px_rgba(23,52,61,0.2)]', k.tint, className)}
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      <Icon className={k.color} style={{ width: size * 0.48, height: size * 0.48 }} strokeWidth={1.6} />
+    </span>
+  )
 }
 
 export function useDevices() {
@@ -46,24 +68,27 @@ export function useDevices() {
   return { devices, faults }
 }
 
-export function DeviceStrip() {
+const PRIMARY = ['bedroom_lights', 'thermostat', 'front_door', 'white_noise']
+
+/** Two-column household status grid. Values are live simulator state. */
+export function DeviceGrid({ all }: { all: boolean }) {
   const { devices, faults } = useDevices()
+  const shown = all ? devices : PRIMARY.map((id) => devices.find((d) => d.device_id === id)).filter((d): d is Device => !!d)
   return (
-    <ul className="card group-list overflow-hidden">
-      {devices.map((d) => {
+    <ul className="grid grid-cols-2 gap-2.5">
+      {shown.map((d) => {
         const faulty = !!faults[d.device_id]
+        const name = d.device_id === 'front_door' ? 'Front door' : d.name
         return (
-          <li key={d.device_id} className="flex min-h-14 items-center gap-3 px-4 py-2.5">
-            <span className={cx('grid size-9 shrink-0 place-items-center rounded-[11px]', faulty ? 'bg-recover/14' : 'bg-white/[0.08]')}>
-              <DeviceIcon d={d} />
-            </span>
+          <li key={d.device_id} className="card flex min-h-[64px] items-center gap-2.5 rounded-[18px] px-3 py-2.5">
+            <Glyph kind={d.reachable ? kindForDevice(d.device_id, d.type, d.state?.locked) : 'offline'} size={38} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium">{d.name}</span>
-              <span className={cx('block truncate text-[13px]', d.reachable ? 'text-ink-mute' : 'text-unknown')}>
+              <span className="block text-[13px] font-medium leading-tight">{name}</span>
+              <span className={cx('mt-1 block text-[12px] leading-tight', d.reachable ? 'text-ink-soft' : 'text-unknown')}>
                 {deviceSummary(d)}
               </span>
+              {faulty && <Badge tone="recover" className="mt-1">sim fault</Badge>}
             </span>
-            {faulty && <Badge tone="recover">sim fault</Badge>}
           </li>
         )
       })}

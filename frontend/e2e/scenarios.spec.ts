@@ -63,7 +63,8 @@ test('Scenario 2: thermostat acknowledges but does not change; AURA detects, exp
   await expect(page.getByText('MISMATCH').first()).toBeVisible()
   await shot(page, '03-thermostat-mismatch')
 
-  await recovery.getByRole('button', { name: /Release the hold and set 72°F/ }).click()
+  await expect(recovery.getByText(/AURA recommends: Release the hold and set 72°F/)).toBeVisible()
+  await recovery.getByRole('button', { name: 'Allow recovery' }).click()
   await confirmLock(page)
   await expect(page.getByText('Everything verified')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText(/Recovered: Set the thermostat to 72°F/)).toBeVisible()
@@ -86,7 +87,7 @@ test('Scenario 3: a preference change persists and is applied in a new session',
 
   await page.getByRole('link', { name: 'Home' }).first().click()
   await page.getByRole('button', { name: /New session/ }).click()
-  await expect(page.getByText(/Every action is checked against/)).toBeVisible()
+  await expect(page.getByLabel('Conversation')).toHaveCount(0)
   await page.reload() // a full page reload: nothing but the server's stored memory carries over
   await page.getByLabel('Ask AURA').fill('Get everything prepared for bedtime.')
   await page.getByRole('button', { name: 'Send' }).click()
@@ -109,7 +110,7 @@ test('Read-only questions run without approval and report observed state', async
 test('History and memory screens are navigable with working controls', async ({ page }) => {
   await page.goto('/history')
   await expect(page.getByText('Every action, with its evidence.')).toBeVisible()
-  await page.getByRole('tab', { name: 'Failed' }).click()
+  await page.getByRole('tab', { name: 'With issues' }).click()
   await expect(page.getByText('No runs match this filter.')).toBeVisible()
   await page.goto('/memory')
   await page.getByRole('button', { name: 'Forget everything' }).click()

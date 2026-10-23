@@ -1,49 +1,50 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter Variable", "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
-  /* Surfaces. night-* kept as names so existing components inherit the new palette. */
-  --color-night-950: #080c19;
-  --color-night-900: #0b1020;
-  --color-night-850: #111827;
-  --color-night-800: #161d2d;
-  --color-night-700: #1e2638;
-  --color-night-600: #2a3346;
-  --color-night-500: #3b4558;
+  /* Legacy surface names, remapped for the light pastel theme */
+  --color-night-950: #17343d;
+  --color-night-900: #f3f1f2;
+  --color-night-850: #fbfaf9;
+  --color-night-800: #ffffff;
+  --color-night-700: #ffffff;
+  --color-night-600: #e8ecef;
+  --color-night-500: #ffffff;
 
-  --color-ink: #f5f7fb;
-  --color-ink-soft: #b8c0d4;
-  --color-ink-mute: #8a93a8;
+  --color-ink: #17343d;
+  --color-ink-soft: #4d646b;
+  --color-ink-mute: #7f9095;
 
-  /* Accent scale (formerly lavender): accent blue and soft indigo */
-  --color-lav-200: #c7e7ff;
-  --color-lav-300: #7cc9ff;
-  --color-lav-400: #8ea2ff;
-  --color-lav-500: #6f84f0;
+  --color-lav-200: #2f5d78;
+  --color-lav-300: #3f6f8c;
+  --color-lav-400: #a9c9de;
+  --color-lav-500: #6e93ae;
 
-  --color-verified: #46d1c2;
-  --color-verified-deep: #2bb3a5;
-  --color-recover: #f2bc57;
-  --color-recover-deep: #d49a2e;
-  --color-failed: #ff7a7a;
-  --color-unknown: #9aa3b8;
+  --color-pearl: #f9f7f6;
+  --color-mist: #e8ecef;
+  --color-sage: #b9cbb9;
+  --color-blush: #f2b5c9;
+  --color-powder: #b4ddf2;
+  --color-lavender: #c9c4d9;
+  --color-cream: #fff1de;
+  --color-forest: #2e7a55;
 
-  --color-card: rgba(255, 255, 255, 0.06);
-  --color-elevated: rgba(255, 255, 255, 0.09);
-  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-verified: #3f8a62;
+  --color-verified-deep: #2e7a55;
+  --color-recover: #c9814a;
+  --color-recover-deep: #b06c37;
+  --color-failed: #d95b70;
+  --color-unknown: #8a9aa3;
 
-  --radius-card: 22px;
-
-  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-breathe: breathe 6s ease-in-out infinite;
   --animate-spin-slow: spin 2.4s linear infinite;
   --animate-rise: rise 0.35s ease-out both;
 
   @keyframes breathe {
-    0%, 100% { transform: scale(1); opacity: 0.92; }
-    50% { transform: scale(1.03); opacity: 1; }
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.035); }
   }
   @keyframes rise {
     from { transform: translateY(6px); opacity: 0; }
@@ -52,7 +53,7 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html, body, #root {
@@ -60,58 +61,94 @@ html, body, #root {
 }
 
 html {
-  background-color: #0b1230;
+  background-color: #eef0ef;
 }
 
+/* Flowing pastel ombré: sage top-left, rose right, powder blue lower-left, lavender centre, pearl highlights */
 body {
   margin: 0;
   background:
-    radial-gradient(1000px 520px at 50% -12%, rgba(142, 162, 255, 0.07), transparent 70%),
-    var(--color-night-900);
+    radial-gradient(60% 45% at 8% 4%, rgba(196, 214, 196, 0.95), transparent 70%),
+    radial-gradient(45% 40% at 96% 12%, rgba(244, 196, 212, 0.85), transparent 70%),
+    radial-gradient(55% 40% at 78% 48%, rgba(238, 186, 206, 0.55), transparent 70%),
+    radial-gradient(50% 45% at 4% 62%, rgba(186, 222, 240, 0.85), transparent 70%),
+    radial-gradient(55% 45% at 50% 78%, rgba(208, 202, 228, 0.6), transparent 70%),
+    radial-gradient(50% 40% at 96% 96%, rgba(246, 200, 214, 0.75), transparent 70%),
+    radial-gradient(45% 35% at 20% 100%, rgba(255, 238, 220, 0.8), transparent 70%),
+    linear-gradient(160deg, #e7ece7 0%, #f6f2f2 40%, #eef0f6 70%, #f5eef0 100%);
   background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-feature-settings: "cv11", "ss01";
-  letter-spacing: -0.006em;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: rgba(124, 201, 255, 0.3);
+  background: rgba(242, 181, 201, 0.45);
 }
 
 :focus-visible {
-  outline: 2px solid rgba(124, 201, 255, 0.7);
+  outline: 2px solid rgba(63, 111, 140, 0.55);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 @layer components {
-/* Grouped card: iOS-style material with a hairline edge and soft shadow */
-.card {
-  background: var(--color-card);
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-card);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.5);
-}
+  /* Translucent white glass card */
+  .card,
+  .glass {
+    background: rgba(255, 255, 255, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    box-shadow: 0 1px 2px rgba(23, 52, 61, 0.04), 0 10px 30px -14px rgba(23, 52, 61, 0.18);
+    backdrop-filter: saturate(140%) blur(22px);
+    -webkit-backdrop-filter: saturate(140%) blur(22px);
+  }
 
-.material {
-  background: rgba(22, 29, 45, 0.72);
-  border: 1px solid var(--color-hairline);
-  backdrop-filter: saturate(160%) blur(24px);
-  -webkit-backdrop-filter: saturate(160%) blur(24px);
-}
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 4px rgba(23, 52, 61, 0.04), 0 14px 34px -16px rgba(23, 52, 61, 0.22);
+    backdrop-filter: saturate(140%) blur(22px);
+    -webkit-backdrop-filter: saturate(140%) blur(22px);
+  }
 
-/* Inset grouped list rows (Settings-style), hairline separators inset past the icon */
-.group-list > * + * {
-  border-top: 1px solid var(--color-hairline);
-}
+  .material {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    backdrop-filter: saturate(150%) blur(24px);
+    -webkit-backdrop-filter: saturate(150%) blur(24px);
+  }
+
+  /* Grouped list rows with thin separators */
+  .group-list > * + * {
+    border-top: 1px solid rgba(23, 52, 61, 0.07);
+  }
+
+  /* Pearlescent assistant orb */
+  .orb {
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.75) 12%, transparent 36%),
+      radial-gradient(circle at 22% 62%, rgba(246, 170, 196, 0.85) 0%, transparent 42%),
+      radial-gradient(circle at 70% 36%, rgba(196, 230, 206, 0.9) 0%, transparent 44%),
+      radial-gradient(circle at 62% 74%, rgba(170, 214, 238, 0.95) 0%, transparent 44%),
+      radial-gradient(circle at 40% 88%, rgba(250, 196, 214, 0.7) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, #f7f1f3 0%, #ebe6ef 62%, #d9dde8 100%);
+    box-shadow:
+      inset -8px -12px 26px rgba(150, 150, 190, 0.32),
+      inset 10px 12px 26px rgba(255, 255, 255, 0.85),
+      0 0 0 1px rgba(255, 255, 255, 0.6),
+      0 26px 46px -22px rgba(120, 100, 130, 0.4);
+  }
 }
 
 .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-.scroll-thin::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(23, 52, 61, 0.15); border-radius: 8px; }
 .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

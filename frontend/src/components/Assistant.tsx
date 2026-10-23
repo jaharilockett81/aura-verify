@@ -177,7 +177,8 @@ export interface Chip {
   icon: LucideIcon
   onClick: () => void
   title?: string
-  tone?: 'default' | 'warn'
+  tint?: string
+  iconColor?: string
   busy?: boolean
 }
 
@@ -187,21 +188,21 @@ function Transcript({ messages, thinking }: { messages: Message[]; thinking: boo
     end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [messages, thinking])
   return (
-    <div className="space-y-4" aria-live="polite" aria-label="Conversation">
+    <div className="space-y-3" aria-live="polite" aria-label="Conversation">
       {messages.map((m) => (
         <div key={m.id} className={cx('flex animate-rise', m.role === 'user' ? 'justify-end' : 'justify-start')}>
           <div className="max-w-[92%]">
             <div
               data-role={m.role}
               className={cx(
-                'rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed',
+                'rounded-[22px] px-4 py-2.5 text-[15px] leading-relaxed shadow-[0_4px_14px_-8px_rgba(23,52,61,0.25)]',
                 m.role === 'user'
-                  ? 'rounded-br-md bg-lav-300 text-night-950'
+                  ? 'rounded-br-md bg-[#dcebf5]/95 text-ink'
                   : m.meta?.recovery
-                    ? 'rounded-bl-md bg-recover/12 text-ink'
+                    ? 'rounded-bl-md bg-[#fbe2cb]/90 text-ink'
                     : m.meta?.final && m.meta?.status === 'COMPLETED'
-                      ? 'rounded-bl-md bg-verified/10 text-ink'
-                      : 'rounded-bl-md bg-white/[0.07] text-ink',
+                      ? 'rounded-bl-md bg-[#d9eee0]/90 text-ink'
+                      : 'rounded-bl-md bg-white/80 text-ink',
               )}
             >
               {m.text}
@@ -222,15 +223,19 @@ function Transcript({ messages, thinking }: { messages: Message[]; thinking: boo
   )
 }
 
-/** Centered, Alexa+-inspired assistant: greeting, transcript, one input bar, action chips. */
+/** Home assistant: greeting, orb, one input bar, two-column quick actions, then any extra content. */
 export function CenteredAssistant({
   convo,
   greeting,
+  subtitle,
   chips,
+  extra,
 }: {
   convo: ReturnType<typeof useConversation>
   greeting: React.ReactNode
+  subtitle: React.ReactNode
   chips: Chip[]
+  extra?: React.ReactNode
 }) {
   const { messages, thinking, error, send, reset } = convo
   const [text, setText] = useState('')
@@ -257,38 +262,27 @@ export function CenteredAssistant({
   }
 
   return (
-    <section
-      aria-label="Talk to AURA"
-      className={cx(
-        'mx-auto flex w-full max-w-2xl flex-col items-center transition-all duration-500',
-        empty ? 'min-h-[calc(100vh-15rem)] justify-center' : 'pt-4',
-      )}
-    >
-      <div className={cx('flex flex-col items-center text-center transition-all', empty ? 'gap-6' : 'gap-3')}>
-        <Orb state={orbState} size={empty ? 64 : 40} />
-        <h1 className={cx('font-display font-normal leading-[1.08] tracking-[-0.01em] text-ink', empty ? 'text-[44px] sm:text-[56px]' : 'text-[28px] sm:text-[32px]')}>
-          {greeting}
-        </h1>
-        {empty && (
-          <p className="max-w-md text-[15px] leading-relaxed text-ink-mute">
-            Every action is checked against the device&apos;s actual state. You approve plans before anything runs.
-          </p>
-        )}
+    <section aria-label="Talk to AURA" className="flex w-full flex-col items-center">
+      <div className="flex flex-col items-center text-center">
+        <h1 className="text-[29px] font-semibold leading-[1.15] tracking-[-0.02em] text-ink sm:text-[32px]">{greeting}</h1>
+        <p className="mt-2.5 max-w-[15rem] text-[15px] leading-snug text-ink">{subtitle}</p>
+        <div className={cx('transition-all duration-500', empty ? 'mt-7 mb-5' : 'mt-5 mb-4')}>
+          <Orb state={orbState} size={empty ? 156 : 92} />
+        </div>
       </div>
 
       {!empty && (
-        <div className="mt-8 w-full">
+        <div className="mb-5 w-full">
           <Transcript messages={messages} thinking={thinking} />
         </div>
       )}
 
-      <form onSubmit={submit} className={cx('w-full', empty ? 'mt-10' : 'sticky bottom-20 z-10 mt-6 lg:bottom-6')}>
+      <form onSubmit={submit} className={cx('w-full', !empty && 'sticky bottom-24 z-10 lg:bottom-6')}>
         {(error || voice.error) && <div className="mb-3"><ErrorNote>{voice.error ?? error}</ErrorNote></div>}
         <div
           className={cx(
-            'material flex h-16 items-center gap-2 rounded-full p-2 pl-2.5 transition-all',
-            'shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_20px_40px_-20px_rgba(0,0,0,0.75)]',
-            voice.listening ? 'ring-2 ring-verified/40' : 'focus-within:border-white/20',
+            'glass-strong flex h-[56px] items-center gap-1 rounded-full pl-2 pr-1.5 transition-all',
+            voice.listening ? 'ring-2 ring-[#9fd8c0]' : 'focus-within:ring-2 focus-within:ring-[#f2b5c9]/70',
           )}
         >
           <button
@@ -296,14 +290,14 @@ export function CenteredAssistant({
             onClick={voice.listening ? voice.stop : voice.start}
             disabled={!voice.supported || thinking}
             className={cx(
-              'grid size-11 shrink-0 place-items-center rounded-full transition',
-              voice.listening ? 'bg-verified/20 text-verified' : 'bg-white/[0.07] text-ink-soft hover:bg-white/[0.12] hover:text-ink',
+              'grid size-10 shrink-0 place-items-center rounded-full transition',
+              voice.listening ? 'bg-[#d9eee0] text-verified-deep' : 'bg-white/90 text-ink shadow-[0_1px_4px_rgba(23,52,61,0.12)] hover:bg-white',
               !voice.supported && 'cursor-not-allowed opacity-40',
             )}
             aria-label={voice.listening ? 'Stop listening' : 'Speak a request'}
             title={voice.supported ? 'Speak a request' : "Voice input isn't supported in this browser. Type instead."}
           >
-            {voice.listening ? <MicOff className="size-5" /> : <Mic className="size-5" />}
+            {voice.listening ? <MicOff className="size-5" strokeWidth={1.75} /> : <Mic className="size-5" strokeWidth={1.75} />}
           </button>
           <label htmlFor="ask" className="sr-only">
             Ask AURA
@@ -312,24 +306,24 @@ export function CenteredAssistant({
             id="ask"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={voice.listening ? voice.interim || 'Listening…' : 'Ask AURA'}
+            placeholder={voice.listening ? voice.interim || 'Listening…' : 'Ask AURA anything about your home...'}
             maxLength={500}
             autoComplete="off"
-            className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-[17px] text-ink placeholder:text-ink-mute focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-[14px] text-ink placeholder:text-[13px] placeholder:text-ink-soft focus:outline-none"
           />
           <button
             type="submit"
             disabled={!text.trim() || thinking}
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-lav-300 text-night-950 transition hover:bg-lav-200 disabled:bg-white/[0.07] disabled:text-ink-mute"
+            className="grid size-[42px] shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#f4a3b6] to-[#ec8aa3] text-white shadow-[0_6px_14px_-6px_rgba(220,110,140,0.8)] transition hover:brightness-105 disabled:opacity-60"
             aria-label="Send"
           >
-            <ArrowUp className="size-5" />
+            <ArrowUp className="size-5" strokeWidth={2} />
           </button>
         </div>
       </form>
 
-      <div className="mt-5 flex w-full flex-wrap items-center justify-center gap-2" aria-label="Quick actions">
-        {chips.map(({ label, icon: Icon, onClick, title, tone, busy }) => (
+      <div className="mt-4 grid w-full grid-cols-2 gap-2.5 px-1" aria-label="Quick actions">
+        {chips.map(({ label, icon: Icon, onClick, title, tint, iconColor, busy }) => (
           <button
             key={label}
             type="button"
@@ -337,27 +331,29 @@ export function CenteredAssistant({
             disabled={busy || thinking}
             title={title}
             className={cx(
-              'inline-flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-medium transition active:scale-[0.97] disabled:opacity-50',
-              tone === 'warn'
-                ? 'bg-recover/12 text-recover hover:bg-recover/18'
-                : 'bg-white/[0.07] text-ink-soft hover:bg-white/[0.11] hover:text-ink',
+              'flex h-[46px] items-center justify-center gap-2.5 rounded-[16px] border border-white/80 px-3 text-left text-[13px] font-medium text-ink shadow-[0_6px_18px_-12px_rgba(23,52,61,0.3)] backdrop-blur-xl transition active:scale-[0.98] disabled:opacity-50',
+              tint ?? 'bg-white/60',
+              'hover:brightness-[1.02]',
             )}
           >
-            <Icon className="size-4" strokeWidth={1.75} aria-hidden />
-            {label}
+            <Icon className={cx('size-[18px] shrink-0', iconColor ?? 'text-ink')} strokeWidth={1.6} aria-hidden />
+            <span className="truncate">{label}</span>
           </button>
         ))}
-        {!empty && (
-          <button
-            type="button"
-            onClick={reset}
-            title="Start a new conversation. Saved memory is kept."
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-ink-mute hover:text-ink"
-          >
-            <RefreshCw className="size-3.5" aria-hidden /> New session
-          </button>
-        )}
       </div>
+
+      {!empty && (
+        <button
+          type="button"
+          onClick={reset}
+          title="Start a new conversation. Saved memory is kept."
+          className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium text-ink-soft hover:bg-white/50 hover:text-ink"
+        >
+          <RefreshCw className="size-3.5" aria-hidden /> New session
+        </button>
+      )}
+
+      {extra && <div className="mt-4 w-full">{extra}</div>}
     </section>
   )
 }

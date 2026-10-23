@@ -101,11 +101,11 @@ Step-by-step profile setup and a live end-to-end Bedrock check (`backend/scripts
    Watch each step pre-check the device, send the command (Accepted), then verify by an independent read
    (Verified). The front-door lock is **Sensitive**, so the run pauses for your confirmation. Finish:
    *"5 of 5 steps verified."*
-2. **Thermostat failure and recovery (signature demo).** Click the **Run failure demo** chip. It
+2. **Thermostat failure and recovery (signature demo).** Click the **Run failure demo** card. It
    resets the simulated home and puts the thermostat into an energy-saver hold (AURA isn't told). Approve
    the plan. The hub acknowledges 72°F, but verification reads 76°F for the whole verification window:
    the step turns **Failed**, the diagnosis explains the hold, and AURA offers *Release the hold and set
-   72°F* (recommended, needs your OK), *Retry as-is*, or *Leave it*. Choose the fix: attempt 2/3 is
+   72°F* (recommended, needs your OK; the **Allow recovery** button), *Retry as-is*, or *Leave it*. Choose the fix: attempt 2/3 is
    verified, and the summary says it was recovered.
 3. **Memory across sessions.** Type *"Actually, I prefer my bedtime temperature at 70 degrees."* AURA
    saves it and verifies by reading it back. Click **New session** (or restart the server), then ask

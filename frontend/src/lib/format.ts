@@ -9,6 +9,10 @@ export function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+export function hm(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
 export function clock(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' })
 }
@@ -96,10 +100,10 @@ export function stepTone(s: StepStatus): Tone {
 }
 
 export const TONE_CLASSES: Record<Tone, string> = {
-  verified: 'text-verified bg-verified/12 ring-transparent',
-  recover: 'text-recover bg-recover/12 ring-transparent',
-  failed: 'text-failed bg-failed/12 ring-transparent',
-  unknown: 'text-unknown bg-unknown/12 ring-transparent',
-  lav: 'text-lav-300 bg-lav-300/12 ring-transparent',
-  mute: 'text-ink-soft bg-white/[0.07] ring-transparent',
+  verified: 'text-verified-deep bg-[#d9eee0] ring-transparent',
+  recover: 'text-recover-deep bg-[#fbe2cb] ring-transparent',
+  failed: 'text-[#c4475d] bg-[#fadbe2] ring-transparent',
+  unknown: 'text-ink-soft bg-mist ring-transparent',
+  lav: 'text-lav-200 bg-[#dcebf5] ring-transparent',
+  mute: 'text-ink-soft bg-white/75 ring-transparent',
 }
