@@ -58,6 +58,22 @@ answer. AURA keeps six assurance levels separate and never merges them:
   evidence and MCP tool log, Memory & Preferences with edit/reset/export/forget, and Execution History.
   A clearly separated **Demo controls** drawer injects simulated faults.
 
+### UI notes
+
+- Desktop-first layout (designed at 1440×900 and 1512×982, fluid from 390 px phones to 1920 px). The
+  Command Center splits roughly 60/40 between the workflow (timeline, step cards, expected vs observed,
+  ack evidence vs independent read, authorized recovery) and the MCP tool activity panel, which labels
+  each real `tools/call` as ACK, READ, VERIFIED, MISMATCH, UNKNOWN or ERROR and expands to show arguments
+  and results. `verify_action` polls while a device settles, so a step can show one or more MISMATCH reads
+  before its VERIFIED read; those are real intermediate results, not errors.
+- `AuraOrb` (`frontend/src/components/Orb.tsx`) is CSS-only and takes a `state` prop: idle, listening,
+  processing, approval, verified, failure, recovering. The state is derived from the live run (SSE
+  events plus a refetch) and the speech recognizer; nothing is timed or faked. Approval is amber and
+  never implies execution was authorized; verified shows for 6 s after a run completes, then returns to idle.
+- Motion uses shared tokens (press 140 ms, content 240 ms, sheets 320 ms, state 360 ms). With
+  `prefers-reduced-motion: reduce`, orb animations and page transitions are switched off (checked in
+  Chromium by emulation).
+
 ## Quick start
 
 Requirements: Python 3.11+, Node.js 20+.

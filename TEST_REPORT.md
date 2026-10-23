@@ -47,6 +47,23 @@ Runs against an isolated server (ports 8100/8101, temporary SQLite, faster simul
 7. No speech support: mic button disabled with an explanatory tooltip; typed requests still work
 8. Mobile (Pixel 7 viewport): bottom navigation works, no horizontal overflow
 
+### Re-run after the desktop UI polish (branch `ui-desktop-polish`, 2026-10-23)
+
+`pytest -q`: 52 passed. Playwright: 8 passed, three consecutive runs (desktop project at 1440×900, mobile
+Pixel 7). One selector conflict appeared while building it: the recovery panel's evidence trail repeated
+the diagnosis sentence, so `/still reports 76°F/` matched two elements. The trail now shows the raw
+fields of the independent read instead; the test assertion was not changed.
+
+Other checks run in headless Chromium against the live dev server:
+- Screenshots of Home (idle, listening), Command Center (running, awaiting the lock confirmation,
+  verified), the thermostat failure, recovery in progress, recovery verified, Memory and History at
+  1440×900 and 1512×982, all driven through the UI with real backend runs. The "listening" shots and the
+  recording use a stub SpeechRecognition that stays open, because the container has no microphone.
+- No horizontal overflow on Home, Command Center, Memory or History at 390, 412, 1024, 1280 and 1920 px.
+- `reducedMotion: 'reduce'` emulation: orb `data-reduced="true"`, orb animations `none`, page transition
+  effectively 0 s. Without it, the orb animations run.
+- No console errors or page errors during the screenshot run.
+
 ## Timing at default settings (manual, API-driven, 2026-10-22)
 
 Signature scenario with `AURA_SIM_SETTLE_MS=600`, `AURA_VERIFY_TIMEOUT_S=3.0`: plan 0.14 s → approve →
